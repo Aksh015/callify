@@ -1,40 +1,45 @@
 import type { AIProvider, IntentResult } from "./types";
 
-type OpenRouterResponse = {
-  choices?: Array<{
-    message?: {
-      content?: string;
+type GeminiResponse = {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{ text?: string }>;
     };
   }>;
 };
 
 export class ExternalFreeProvider implements AIProvider {
-  private readonly apiKey = process.env.OPENROUTER_API_KEY;
-  private readonly model = process.env.EXTERNAL_FREE_MODEL || "meta-llama/llama-3.1-8b-instruct:free";
+  private readonly apiKey = process.env.GEMINI_API_KEY;
+  private readonly model = process.env.EXTERNAL_FREE_MODEL || "gemini-2.0-flash";
 
   private async chat(prompt: string) {
     if (!this.apiKey) {
-      throw new Error("OPENROUTER_API_KEY is not configured.");
+      throw new Error("GEMINI_API_KEY is not configured.");
     }
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: this.model,
-        messages: [{ role: "user", content: prompt }],
-      }),
-    });
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.apiKey}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.2,
+            maxOutputTokens: 1024,
+          },
+        }),
+      }
+    );
 
     if (!response.ok) {
-      throw new Error(`OpenRouter request failed: ${response.status}`);
+      throw new Error(`Gemini request failed: ${response.status}`);
     }
 
-    const data = (await response.json()) as OpenRouterResponse;
-    return data.choices?.[0]?.message?.content?.trim() || "";
+    const data = (await response.json()) as GeminiResponse;
+    return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || "";
   }
 
   async classifyIntent(input: { utterance: string; allowedIntents: string[] }): Promise<IntentResult> {

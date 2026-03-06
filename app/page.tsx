@@ -1,7 +1,10 @@
 "use client";
 
+import { createClient } from "@/lib/supabase/client";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const stats = [
   { label: "Average Setup Time", value: "8 min" },
@@ -27,7 +30,7 @@ const features = [
 const plans = [
   {
     name: "Tier 1 • Starter",
-    price: "₹999/mo",
+    price: "₹100/mo",
     subtitle: "KB + AI Number",
     features: [
       "AI call answering from knowledge base",
@@ -37,7 +40,7 @@ const plans = [
   },
   {
     name: "Tier 2 • Connect",
-    price: "₹2,499/mo",
+    price: "₹1,000/mo",
     subtitle: "Comms Integrations",
     features: [
       "Everything in Tier 1",
@@ -47,7 +50,7 @@ const plans = [
   },
   {
     name: "Tier 3 • Ops",
-    price: "₹4,999/mo",
+    price: "₹2,000/mo",
     subtitle: "Dashboard Included",
     features: [
       "Everything in Tier 2",
@@ -57,7 +60,7 @@ const plans = [
   },
   {
     name: "Tier 4 • Custom",
-    price: "Custom",
+    price: "₹3,000/mo",
     subtitle: "Custom MCP + Self-hosted LLM",
     features: [
       "Tier 3 capabilities with optional modules",
@@ -68,6 +71,16 @@ const plans = [
 ];
 
 export default function Home() {
+  const router = useRouter();
+  const [user, setUser] = useState<{ email?: string } | null>(null);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+    });
+  }, []);
+
   return (
     <main className="min-h-screen overflow-x-hidden bg-slate-950 text-slate-100">
       <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(circle_at_15%_20%,rgba(34,211,238,0.16),transparent_32%),radial-gradient(circle_at_85%_10%,rgba(99,102,241,0.2),transparent_35%),radial-gradient(circle_at_50%_90%,rgba(16,185,129,0.1),transparent_28%)]" />
@@ -79,12 +92,42 @@ export default function Home() {
             <a href="#plans" className="text-sm text-slate-300 transition hover:text-white">
               Plans
             </a>
-            <Link
-              href="/onboarding"
-              className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-300"
-            >
-              Get Started
-            </Link>
+            {user ? (
+              <>
+                <span className="text-sm text-slate-400">{user.email}</span>
+                <Link
+                  href="/onboarding"
+                  className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-300"
+                >
+                  Dashboard
+                </Link>
+                <button
+                  onClick={async () => {
+                    await fetch("/api/auth/logout", { method: "POST" });
+                    setUser(null);
+                    router.refresh();
+                  }}
+                  className="rounded-lg border border-white/15 px-4 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/10"
+                >
+                  Log Out
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/auth/login"
+                  className="text-sm text-slate-300 transition hover:text-white"
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/auth/signup"
+                  className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-300"
+                >
+                  Get Started
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </header>

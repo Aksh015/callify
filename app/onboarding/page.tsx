@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 type BusinessCategory = "doctor" | "hotel";
 type Tier = 1 | 2 | 3 | 4;
@@ -29,11 +29,11 @@ type IntegrationConfig = {
 
 const steps = ["Business", "KB Upload", "Tier", "Config", "Payment", "Provisioned"];
 
-const tierText: Record<Tier, string> = {
-    1: "KB + number provisioning only",
-    2: "Tier 1 + messaging, WhatsApp, email config",
-    3: "Tier 2 + hosted dashboard link provisioning",
-    4: "Tier 3 baseline + optional modules + MCP customization",
+const tierInfo: Record<Tier, { label: string; price: string; amount: number; desc: string }> = {
+    1: { label: "Tier 1 • Starter", price: "₹100/mo", amount: 100, desc: "KB + number provisioning only" },
+    2: { label: "Tier 2 • Connect", price: "₹1,000/mo", amount: 1000, desc: "Tier 1 + messaging, WhatsApp, email config" },
+    3: { label: "Tier 3 • Ops", price: "₹2,000/mo", amount: 2000, desc: "Tier 2 + hosted dashboard link provisioning" },
+    4: { label: "Tier 4 • Custom", price: "₹3,000/mo", amount: 3000, desc: "Tier 3 baseline + optional modules + MCP customization" },
 };
 
 function createBusinessSlug(name: string) {
@@ -50,14 +50,18 @@ export default function OnboardingPage() {
     const [step, setStep] = useState(0);
     const [tier, setTier] = useState<Tier | null>(null);
     const [knowledgeBaseId, setKnowledgeBaseId] = useState("");
+    const [businessId, setBusinessId] = useState("");
     const [provisionedNumber, setProvisionedNumber] = useState("");
     const [persistedDashboardUrl, setPersistedDashboardUrl] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isPaying, setIsPaying] = useState(false);
+    const [paymentDone, setPaymentDone] = useState(false);
     const [kbTestQuery, setKbTestQuery] = useState("");
     const [kbTestResponse, setKbTestResponse] = useState("");
     const [kbTestLoading, setKbTestLoading] = useState(false);
     const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
     const [errors, setErrors] = useState<string[]>([]);
+    const [authChecked, setAuthChecked] = useState(false);
 
     const [business, setBusiness] = useState<BusinessDetails>({
         businessName: "",
@@ -84,6 +88,20 @@ export default function OnboardingPage() {
         return `https://${slug}.mydomain.in`;
     }, [business.businessName]);
 
+    // Check auth on mount
+    useEffect(() => {
+        fetch("/api/auth/me")
+            .then((res) => {
+                if (!res.ok) {
+                    window.location.href = "/auth/login?redirect=/onboarding";
+                }
+                setAuthChecked(true);
+            })
+            .catch(() => {
+                window.location.href = "/auth/login?redirect=/onboarding";
+            });
+    }, []);
+
     const validateBusinessStep = () => {
         const currentErrors: string[] = [];
         if (!business.businessName.trim()) currentErrors.push("Business name is required.");
@@ -99,13 +117,11 @@ export default function OnboardingPage() {
         const currentErrors: string[] = [];
         if (uploadedFiles.length === 0) currentErrors.push("Please upload at least one KB file.");
         if (uploadedFiles.length > 5) currentErrors.push("You can upload up to 5 files only.");
-
         uploadedFiles.forEach((file) => {
             if (file.size > 10 * 1024 * 1024) {
                 currentErrors.push(`${file.name} is larger than 10MB.`);
             }
         });
-
         setErrors(currentErrors);
         return currentErrors.length === 0;
     };
@@ -119,7 +135,6 @@ export default function OnboardingPage() {
 
     const validateConfigStep = () => {
         if (!tier) return false;
-
         const currentErrors: string[] = [];
         const needsTier2Fields = tier === 2 || tier === 3;
 
@@ -140,9 +155,9 @@ export default function OnboardingPage() {
         return currentErrors.length === 0;
     };
 
-    const submitOnboarding = async () => {
+    // Step 4 → Save business profile first, then pay
+    const saveBusinessProfile = async () => {
         if (!tier) return;
-
         setIsSubmitting(true);
         setErrors([]);
 
@@ -158,29 +173,91 @@ export default function OnboardingPage() {
                 body: formData,
             });
 
-            const data = (await response.json()) as {
-                error?: string;
-                knowledgeBaseId?: string;
-                provisionedNumber?: string;
-                dashboardUrl?: string | null;
-            };
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "Failed to save business profile.");
 
-            if (!response.ok) {
-                throw new Error(data.error || "Failed to complete onboarding.");
-            }
-
+            setBusinessId(data.businessId || "");
             setKnowledgeBaseId(data.knowledgeBaseId || "");
             setProvisionedNumber(data.provisionedNumber || "");
             setPersistedDashboardUrl(data.dashboardUrl || null);
-            setStep(5);
+            return data.businessId as string;
         } catch (error) {
-            setErrors([
-                error instanceof Error
-                    ? error.message
-                    : "Failed to save onboarding. Please try again.",
-            ]);
+            setErrors([error instanceof Error ? error.message : "Failed to save. Please try again."]);
+            return null;
         } finally {
             setIsSubmitting(false);
+        }
+    };
+
+    // Cashfree checkout
+    const handlePayment = async () => {
+        if (!tier) return;
+
+        setIsPaying(true);
+        setErrors([]);
+
+        try {
+            // Save profile first if not done
+            let currentBusinessId = businessId;
+            if (!currentBusinessId) {
+                const id = await saveBusinessProfile();
+                if (!id) {
+                    setIsPaying(false);
+                    return;
+                }
+                currentBusinessId = id;
+            }
+
+            // Create Cashfree order
+            const checkoutRes = await fetch("/api/billing/checkout", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ businessId: currentBusinessId, tier }),
+            });
+
+            const checkoutData = await checkoutRes.json();
+            if (!checkoutRes.ok) throw new Error(checkoutData.error || "Payment initiation failed.");
+
+            const { paymentSessionId, orderId } = checkoutData;
+
+            // Load Cashfree JS SDK
+            const cashfree = await loadCashfreeSDK();
+            if (!cashfree) throw new Error("Failed to load payment SDK.");
+
+            const result = await cashfree.checkout({
+                paymentSessionId,
+                redirectTarget: "_modal",
+            });
+
+            // After modal closes — verify payment
+            if (result.error) {
+                // Payment failed or cancelled
+                setErrors([result.error.message || "Payment was cancelled."]);
+                setIsPaying(false);
+                return;
+            }
+
+            // Verify with backend
+            const verifyRes = await fetch("/api/billing/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ orderId }),
+            });
+
+            const verifyData = await verifyRes.json();
+
+            if (verifyData.status === "SUCCESS") {
+                setPaymentDone(true);
+                setStep(5);
+            } else if (verifyData.status === "PENDING") {
+                setErrors(["Payment is being processed. Please wait and refresh."]);
+            } else {
+                setErrors(["Payment failed. Please try again."]);
+            }
+        } catch (error) {
+            setErrors([error instanceof Error ? error.message : "Payment failed."]);
+        } finally {
+            setIsPaying(false);
         }
     };
 
@@ -197,7 +274,7 @@ export default function OnboardingPage() {
         if (!isValid) return;
 
         if (step === 4) {
-            await submitOnboarding();
+            // Payment step — handled by handlePayment button
             return;
         }
 
@@ -218,6 +295,7 @@ export default function OnboardingPage() {
     const resetFlow = () => {
         setStep(0);
         setKnowledgeBaseId("");
+        setBusinessId("");
         setProvisionedNumber("");
         setPersistedDashboardUrl(null);
         setKbTestQuery("");
@@ -225,6 +303,7 @@ export default function OnboardingPage() {
         setTier(null);
         setUploadedFiles([]);
         setErrors([]);
+        setPaymentDone(false);
     };
 
     const runKbTest = async () => {
@@ -235,9 +314,7 @@ export default function OnboardingPage() {
         try {
             const response = await fetch("/api/runtime/turn", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
+                headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
                     utterance: kbTestQuery,
                     languageCode: "en-IN",
@@ -251,11 +328,8 @@ export default function OnboardingPage() {
                 }),
             });
 
-            const data = (await response.json()) as { responseText?: string; error?: string };
-            if (!response.ok) {
-                throw new Error(data.error || "Failed to run KB test.");
-            }
-
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || "Failed to run KB test.");
             setKbTestResponse(data.responseText || "No response generated.");
         } catch (error) {
             setKbTestResponse(error instanceof Error ? error.message : "Failed to run KB test.");
@@ -264,6 +338,19 @@ export default function OnboardingPage() {
         }
     };
 
+    const handleLogout = async () => {
+        await fetch("/api/auth/logout", { method: "POST" });
+        window.location.href = "/";
+    };
+
+    if (!authChecked) {
+        return (
+            <main className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-100">
+                <p className="text-slate-400">Loading...</p>
+            </main>
+        );
+    }
+
     return (
         <main className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100">
             <div className="mx-auto max-w-6xl">
@@ -271,9 +358,17 @@ export default function OnboardingPage() {
                     <Link href="/" className="text-sm text-cyan-300 transition hover:text-cyan-200">
                         ← Back to Home
                     </Link>
-                    <p className="text-sm text-slate-400">
-                        Step {step + 1} of {steps.length}
-                    </p>
+                    <div className="flex items-center gap-4">
+                        <p className="text-sm text-slate-400">
+                            Step {step + 1} of {steps.length}
+                        </p>
+                        <button
+                            onClick={handleLogout}
+                            className="rounded-lg border border-white/15 px-3 py-1 text-xs text-slate-400 hover:text-white"
+                        >
+                            Sign Out
+                        </button>
+                    </div>
                 </div>
 
                 <motion.div
@@ -283,15 +378,14 @@ export default function OnboardingPage() {
                 >
                     <h1 className="text-3xl font-semibold">VoiceDesk Onboarding</h1>
                     <p className="mt-2 text-sm text-slate-400">
-                        Complete setup and provision your AI customer care number.
+                        Complete setup, pay for your tier, and provision your AI customer care number.
                     </p>
 
                     <div className="mt-4 grid gap-2 sm:grid-cols-3 md:grid-cols-6">
                         {steps.map((item, idx) => (
                             <div
                                 key={item}
-                                className={`rounded px-2 py-1 text-center text-xs ${idx <= step ? "bg-cyan-400/20 text-cyan-200" : "bg-white/5 text-slate-400"
-                                    }`}
+                                className={`rounded px-2 py-1 text-center text-xs ${idx <= step ? "bg-cyan-400/20 text-cyan-200" : "bg-white/5 text-slate-400"}`}
                             >
                                 {item}
                             </div>
@@ -357,16 +451,18 @@ export default function OnboardingPage() {
                             <section>
                                 <h2 className="text-xl font-semibold">Choose Tier</h2>
                                 <div className="mt-4 grid gap-3">
-                                    {[1, 2, 3, 4].map((value) => (
+                                    {([1, 2, 3, 4] as Tier[]).map((value) => (
                                         <button
                                             key={value}
                                             type="button"
-                                            onClick={() => setTier(value as Tier)}
-                                            className={`rounded-xl border p-4 text-left ${tier === value ? "border-cyan-300 bg-cyan-400/15" : "border-white/10 bg-white/[0.02]"
-                                                }`}
+                                            onClick={() => setTier(value)}
+                                            className={`rounded-xl border p-4 text-left ${tier === value ? "border-cyan-300 bg-cyan-400/15" : "border-white/10 bg-white/[0.02]"}`}
                                         >
-                                            <p className="font-medium">Tier {value}</p>
-                                            <p className="mt-1 text-sm text-slate-300">{tierText[value as Tier]}</p>
+                                            <div className="flex items-center justify-between">
+                                                <p className="font-medium">{tierInfo[value].label}</p>
+                                                <p className="text-lg font-semibold text-cyan-200">{tierInfo[value].price}</p>
+                                            </div>
+                                            <p className="mt-1 text-sm text-slate-300">{tierInfo[value].desc}</p>
                                         </button>
                                     ))}
                                 </div>
@@ -410,26 +506,71 @@ export default function OnboardingPage() {
                             </section>
                         )}
 
-                        {step === 4 && (
+                        {step === 4 && tier && (
                             <section>
-                                <h2 className="text-xl font-semibold">Payment (placeholder)</h2>
-                                <p className="mt-2 text-sm text-slate-400">Cashfree sandbox integration will be implemented in final payment step.</p>
+                                <h2 className="text-xl font-semibold">Payment</h2>
+                                <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-6">
+                                    <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                                        <div>
+                                            <p className="font-medium">{tierInfo[tier].label}</p>
+                                            <p className="mt-1 text-sm text-slate-400">{tierInfo[tier].desc}</p>
+                                        </div>
+                                        <p className="text-2xl font-semibold text-cyan-200">{tierInfo[tier].price}</p>
+                                    </div>
+                                    <div className="mt-4 space-y-2 text-sm text-slate-300">
+                                        <div className="flex justify-between">
+                                            <span>Business</span>
+                                            <span className="text-slate-100">{business.businessName}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span>Category</span>
+                                            <span className="capitalize text-slate-100">{business.category}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span>KB Files</span>
+                                            <span className="text-slate-100">{uploadedFiles.length} uploaded</span>
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={handlePayment}
+                                        disabled={isPaying || isSubmitting}
+                                        className="mt-6 w-full rounded-xl bg-emerald-500 py-3 font-medium text-white transition hover:bg-emerald-400 disabled:opacity-60"
+                                    >
+                                        {isPaying ? "Processing Payment..." : isSubmitting ? "Saving..." : `Pay ₹${tierInfo[tier].amount} with Cashfree`}
+                                    </button>
+                                    <p className="mt-3 text-center text-xs text-slate-500">
+                                        Secure payment via Cashfree Payment Gateway
+                                    </p>
+                                </div>
                             </section>
                         )}
 
                         {step === 5 && (
                             <section className="space-y-4">
                                 <h2 className="text-2xl font-semibold text-emerald-300">Provisioning Complete</h2>
-                                <p className="text-sm text-slate-300">Your Tier setup is saved and number is provisioned.</p>
+                                <p className="text-sm text-slate-300">
+                                    {paymentDone
+                                        ? "Payment successful! Your tier is active and number is provisioned."
+                                        : "Your Tier setup is saved and number is provisioned."}
+                                </p>
                                 <div className="rounded-xl border border-emerald-300/30 bg-emerald-400/10 p-4">
                                     <p className="text-sm">Issued Number</p>
                                     <p className="text-3xl font-semibold">{provisionedNumber}</p>
                                 </div>
+                                {tier && (
+                                    <div className="rounded-xl border border-cyan-300/20 bg-cyan-400/5 p-3">
+                                        <p className="text-sm text-cyan-200">Active Plan: {tierInfo[tier].label} — {tierInfo[tier].price}</p>
+                                    </div>
+                                )}
                                 <div className="rounded-xl border border-white/10 p-4 text-sm">
                                     <p>Knowledge Base ID: {knowledgeBaseId || "-"}</p>
                                     {(tier === 3 || (tier === 4 && config.enableDashboard)) && (
                                         <p>
-                                            Dashboard URL: <a href={persistedDashboardUrl || dashboardUrl} className="text-cyan-300">{persistedDashboardUrl || dashboardUrl}</a>
+                                            Dashboard URL:{" "}
+                                            <a href={persistedDashboardUrl || dashboardUrl} className="text-cyan-300">
+                                                {persistedDashboardUrl || dashboardUrl}
+                                            </a>
                                         </p>
                                     )}
                                 </div>
@@ -462,12 +603,14 @@ export default function OnboardingPage() {
                                     )}
                                 </div>
 
-                                <button onClick={resetFlow} className="rounded-lg bg-cyan-400 px-4 py-2 text-slate-900">Onboard Another</button>
+                                <button onClick={resetFlow} className="rounded-lg bg-cyan-400 px-4 py-2 text-slate-900">
+                                    Onboard Another
+                                </button>
                             </section>
                         )}
                     </div>
 
-                    {step < 5 && (
+                    {step < 5 && step !== 4 && (
                         <div className="mt-8 flex items-center justify-between border-t border-white/10 pt-4">
                             <button
                                 type="button"
@@ -483,7 +626,20 @@ export default function OnboardingPage() {
                                 disabled={isSubmitting}
                                 className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-medium text-slate-900 disabled:opacity-60"
                             >
-                                {step === 4 ? (isSubmitting ? "Saving..." : "Complete Setup") : "Continue"}
+                                Continue
+                            </button>
+                        </div>
+                    )}
+
+                    {step === 4 && (
+                        <div className="mt-8 flex items-center justify-start border-t border-white/10 pt-4">
+                            <button
+                                type="button"
+                                onClick={previousStep}
+                                disabled={isPaying}
+                                className="rounded-lg border border-white/20 px-4 py-2 text-sm disabled:opacity-40"
+                            >
+                                Previous
                             </button>
                         </div>
                     )}
@@ -491,6 +647,34 @@ export default function OnboardingPage() {
             </div>
         </main>
     );
+}
+
+// Dynamically load Cashfree JS SDK
+function loadCashfreeSDK(): Promise<any> {
+    return new Promise((resolve, reject) => {
+        if ((window as any).Cashfree) {
+            const cf = new (window as any).Cashfree({
+                mode: process.env.NEXT_PUBLIC_CASHFREE_ENVIRONMENT === "production" ? "production" : "sandbox",
+            });
+            resolve(cf);
+            return;
+        }
+
+        const script = document.createElement("script");
+        script.src = "https://sdk.cashfree.com/js/v3/cashfree.js";
+        script.onload = () => {
+            if ((window as any).Cashfree) {
+                const cf = new (window as any).Cashfree({
+                    mode: process.env.NEXT_PUBLIC_CASHFREE_ENVIRONMENT === "production" ? "production" : "sandbox",
+                });
+                resolve(cf);
+            } else {
+                reject(new Error("Cashfree SDK failed to load."));
+            }
+        };
+        script.onerror = () => reject(new Error("Failed to load Cashfree SDK script."));
+        document.head.appendChild(script);
+    });
 }
 
 function Field({

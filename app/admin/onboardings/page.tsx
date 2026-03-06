@@ -1,43 +1,35 @@
 import Link from "next/link";
-import { prisma } from "@/lib/prisma";
+import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export default async function OnboardingsAdminPage() {
     let submissions: Array<{
         id: string;
-        businessName: string;
-        ownerName: string;
+        business_name: string;
+        owner_name: string;
         email: string;
         phone: string;
         city: string;
         category: string;
-        tier: string;
-        provisionedNumber: string;
-        dashboardUrl: string | null;
-        createdAt: Date;
+        tier: number;
+        provisioned_number: string;
+        dashboard_url: string | null;
+        created_at: string;
     }> = [];
 
     let dbUnavailable = false;
 
     try {
-        submissions = await prisma.onboardingSubmission.findMany({
-            orderBy: { createdAt: "desc" },
-            take: 100,
-            select: {
-                id: true,
-                businessName: true,
-                ownerName: true,
-                email: true,
-                phone: true,
-                city: true,
-                category: true,
-                tier: true,
-                provisionedNumber: true,
-                dashboardUrl: true,
-                createdAt: true,
-            },
-        });
+        const supabase = await createClient();
+        const { data, error } = await supabase
+            .from("business_profiles")
+            .select("id, business_name, owner_name, email, phone, city, category, tier, provisioned_number, dashboard_url, created_at")
+            .order("created_at", { ascending: false })
+            .limit(100);
+
+        if (error) throw error;
+        submissions = data || [];
     } catch {
         dbUnavailable = true;
     }
@@ -80,20 +72,20 @@ export default async function OnboardingsAdminPage() {
                                 {submissions.map((item) => (
                                     <tr key={item.id} className="border-t border-white/10">
                                         <td className="px-4 py-3">
-                                            <p className="font-medium">{item.businessName}</p>
+                                            <p className="font-medium">{item.business_name}</p>
                                             <p className="text-xs text-slate-400">{item.city}</p>
                                         </td>
                                         <td className="px-4 py-3">
-                                            <p>{item.ownerName}</p>
+                                            <p>{item.owner_name}</p>
                                             <p className="text-xs text-slate-400">{item.email}</p>
                                         </td>
                                         <td className="px-4 py-3 capitalize">{item.category}</td>
-                                        <td className="px-4 py-3">{item.tier.replace("TIER_", "Tier ")}</td>
-                                        <td className="px-4 py-3">{item.provisionedNumber}</td>
+                                        <td className="px-4 py-3">Tier {item.tier}</td>
+                                        <td className="px-4 py-3">{item.provisioned_number}</td>
                                         <td className="px-4 py-3">
-                                            {item.dashboardUrl ? (
+                                            {item.dashboard_url ? (
                                                 <a
-                                                    href={item.dashboardUrl}
+                                                    href={item.dashboard_url}
                                                     className="text-cyan-300 hover:text-cyan-200"
                                                     target="_blank"
                                                     rel="noreferrer"
@@ -105,7 +97,7 @@ export default async function OnboardingsAdminPage() {
                                             )}
                                         </td>
                                         <td className="px-4 py-3 text-slate-300">
-                                            {item.createdAt.toLocaleString()}
+                                            {new Date(item.created_at).toLocaleString()}
                                         </td>
                                     </tr>
                                 ))}
