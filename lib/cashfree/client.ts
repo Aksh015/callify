@@ -16,10 +16,10 @@ export function getCashfree() {
 export { Cashfree, CFEnvironment };
 
 export const TIER_PRICES: Record<number, number> = {
-  1: 100,
-  2: 1000,
-  3: 2000,
-  4: 3000,
+  1: 6,
+  2: 7,
+  3: 8,
+  4: 9,
 };
 
 export function getTierAmount(tier: number): number {

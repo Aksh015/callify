@@ -166,9 +166,15 @@ export async function POST(request: Request) {
       tier,
       kbIngestion,
     });
-  } catch (error) {
-    console.error("onboarding create failed", error);
-    return NextResponse.json({ error: "Failed to save onboarding." }, { status: 500 });
+  } catch (error: unknown) {
+    console.error("onboarding create failed", JSON.stringify(error, null, 2));
+    const msg =
+      error && typeof error === "object" && "message" in error
+        ? String((error as { message: string }).message)
+        : error && typeof error === "object" && "details" in error
+          ? String((error as { details: string }).details)
+          : "Failed to save onboarding.";
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
 

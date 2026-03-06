@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { writeFile } from "node:fs/promises";
 import path from "node:path";
-import { PDFParse } from "pdf-parse";
 import { ensureKbDirs, getKbUploadsDir, saveKbIndex } from "./storage";
 import type { KBChunk, KBIndex } from "./types";
 
@@ -41,9 +40,9 @@ async function extractText(file: File) {
   const buffer = Buffer.from(arrayBuffer);
 
   if (ext === ".pdf") {
-    const parser = new PDFParse({ data: buffer });
-    const parsed = await parser.getText();
-    await parser.destroy();
+    // Dynamic import to avoid pdf-parse's test file loading at module init
+    const pdfParse = (await import("pdf-parse")).default;
+    const parsed = await pdfParse(buffer);
     return cleanText(parsed.text || "");
   }
 

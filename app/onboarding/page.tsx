@@ -30,10 +30,10 @@ type IntegrationConfig = {
 const steps = ["Business", "KB Upload", "Tier", "Config", "Payment", "Provisioned"];
 
 const tierInfo: Record<Tier, { label: string; price: string; amount: number; desc: string }> = {
-    1: { label: "Tier 1 • Starter", price: "₹100/mo", amount: 100, desc: "KB + number provisioning only" },
-    2: { label: "Tier 2 • Connect", price: "₹1,000/mo", amount: 1000, desc: "Tier 1 + messaging, WhatsApp, email config" },
-    3: { label: "Tier 3 • Ops", price: "₹2,000/mo", amount: 2000, desc: "Tier 2 + hosted dashboard link provisioning" },
-    4: { label: "Tier 4 • Custom", price: "₹3,000/mo", amount: 3000, desc: "Tier 3 baseline + optional modules + MCP customization" },
+    1: { label: "Tier 1 • Starter", price: "₹6/mo", amount: 6, desc: "KB + number provisioning only" },
+    2: { label: "Tier 2 • Connect", price: "₹7/mo", amount: 7, desc: "Tier 1 + messaging, WhatsApp, email config" },
+    3: { label: "Tier 3 • Ops", price: "₹8/mo", amount: 8, desc: "Tier 2 + hosted dashboard link provisioning" },
+    4: { label: "Tier 4 • Custom", price: "₹9/mo", amount: 9, desc: "Tier 3 baseline + optional modules + MCP customization" },
 };
 
 function createBusinessSlug(name: string) {

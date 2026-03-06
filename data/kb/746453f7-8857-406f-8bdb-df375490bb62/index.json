@@ -1,0 +1,30 @@
+{
+  "knowledgeBaseId": "746453f7-8857-406f-8bdb-df375490bb62",
+  "createdAt": "2026-03-06T19:09:15.347Z",
+  "chunks": [
+    {
+      "id": "542657f8-2d9b-431c-9ba5-fc6535714bae",
+      "sourceFile": "Abhinav_Resume-Cv9k3DOk.pdf",
+      "text": "Abhinav Dixit  +91 6351311434 # abhinav6427@gmail.com ï https://www.linkedin.com/in/abhinav6427/ § https://github.com/Aaaabhinav Summary Computer Science Engineering student (5th semester) at Nirma University. Skilled in C/C++, Java, JavaScript, React, Node.js, and Python. Passionate about building impactful software solutions through hands-on projects. Strongly interested in AI-agent development (leveraging Model Context Protocol, MCP) and CI/CD pipelines. Experienced in web development, system simulations, and intelligent automation. Technical Skills • Programming Languages:C/C++, Java, JavaScript, Python • Web Technologies:React, Tailwind CSS, Node.js • Other Skills:Software Development, Web Development, Game Development, AI Agent Development (MCP), API Integration, CI/CD Pipelines, NL",
+      "index": 0
+    },
+    {
+      "id": "d8ea2f92-dfcd-4f34-ba01-db52682e7331",
+      "sourceFile": "Abhinav_Resume-Cv9k3DOk.pdf",
+      "text": "oftware Development, Web Development, Game Development, AI Agent Development (MCP), API Integration, CI/CD Pipelines, NLP, OpenCV Education Nirma University, Institute of TechnologyJul 2023 – Jun 2027 B.Tech in Computer Science and Engineering — CGPA: 8.815th Semester Amicus International School (CBSE)2022 Class 12th — Science — Percentage: 96% Amicus International School (CBSE)2020 Class 10th — Percentage: 95.5% Projects 2D Java Adventure Game • Developed a 2D adventure game where the player collects keys to unlock doors. • Strengthened understanding of game loops, rendering, and entity interactions. Operating System Simulation (Web-based) • Built a React-based CPU scheduling simulator for visualizing process switching. • Implemented algorithms such as FCFS, SJF, and Round Robin schedulin",
+      "index": 1
+    },
+    {
+      "id": "65466e6d-e5f3-4710-a7db-687929114dcb",
+      "sourceFile": "Abhinav_Resume-Cv9k3DOk.pdf",
+      "text": "uling simulator for visualizing process switching. • Implemented algorithms such as FCFS, SJF, and Round Robin scheduling. AI-Powered Conversational Assistant • Developed an intelligent conversational AI using Node.js and Google’s Gemini AI model. • Integrated Model Context Protocol (MCP) for context-aware and persistent interactions. • Enabled automated file operations (read/write) and YouTube video playback. AutoTestPilot — HackNuthon 6.0 (RapidOps Track, Nirma University) • Developed an AI-powered test automation agent using React, Node.js, and Gemini API. • Analyzed Figma designs to auto-generate test plans and cases. • Integrated GitHub Actions for CI/CD pipelines in a 4-member team project. • Achieved6th Placein HackNuthon 6.0 RapidOps Track. Achievements/Position of responsibility •",
+      "index": 2
+    },
+    {
+      "id": "9e0ed9c7-f411-4216-9169-ce0430066c51",
+      "sourceFile": "Abhinav_Resume-Cv9k3DOk.pdf",
+      "text": "a 4-member team project. • Achieved6th Placein HackNuthon 6.0 RapidOps Track. Achievements/Position of responsibility • GDG Core Member (Google Developer Group). • Winner of Maverick Effect AI Challenge 2025. • Top 10 finalist in Rapido’s Track HackNuthon 2025.",
+      "index": 3
+    }
+  ]
+}

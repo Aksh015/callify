@@ -30,7 +30,7 @@ const features = [
 const plans = [
   {
     name: "Tier 1 • Starter",
-    price: "₹100/mo",
+    price: "₹6/mo",
     subtitle: "KB + AI Number",
     features: [
       "AI call answering from knowledge base",
@@ -40,7 +40,7 @@ const plans = [
   },
   {
     name: "Tier 2 • Connect",
-    price: "₹1,000/mo",
+    price: "₹7/mo",
     subtitle: "Comms Integrations",
     features: [
       "Everything in Tier 1",
@@ -50,7 +50,7 @@ const plans = [
   },
   {
     name: "Tier 3 • Ops",
-    price: "₹2,000/mo",
+    price: "₹8/mo",
     subtitle: "Dashboard Included",
     features: [
       "Everything in Tier 2",
@@ -60,7 +60,7 @@ const plans = [
   },
   {
     name: "Tier 4 • Custom",
-    price: "₹3,000/mo",
+    price: "₹9/mo",
     subtitle: "Custom MCP + Self-hosted LLM",
     features: [
       "Tier 3 capabilities with optional modules",

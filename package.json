@@ -19,7 +19,7 @@
     "clsx": "^2.1.1",
     "framer-motion": "^12.35.0",
     "next": "16.1.6",
-    "pdf-parse": "^2.4.5",
+    "pdf-parse": "^1.1.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "sarvamai": "^1.1.4"
