@@ -2,52 +2,82 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getCashfree, getTierAmount } from "@/lib/cashfree/client";
 
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+
+  if (error && typeof error === "object") {
+    const maybe = error as {
+      message?: string;
+      response?: { data?: { message?: string; error?: string } };
+      details?: string;
+    };
+
+    return (
+      maybe.response?.data?.message ||
+      maybe.response?.data?.error ||
+      maybe.message ||
+      maybe.details ||
+      "Payment initiation failed."
+    );
+  }
+
+  return "Payment initiation failed.";
+}
+
 export async function POST(request: Request) {
-  const supabase = await createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { businessId, tier } = (await request.json()) as {
-    businessId: string;
-    tier: number;
-  };
-
-  if (!businessId || !tier || tier < 1 || tier > 4) {
-    return NextResponse.json(
-      { error: "Valid businessId and tier (1-4) are required." },
-      { status: 400 }
-    );
-  }
-
-  const amount = getTierAmount(tier);
-  if (!amount) {
-    return NextResponse.json({ error: "Invalid tier." }, { status: 400 });
-  }
-
-  // Verify the business belongs to this user
-  const { data: profile } = await supabase
-    .from("business_profiles")
-    .select("id, business_name, tier")
-    .eq("id", businessId)
-    .eq("user_id", user.id)
-    .single();
-
-  if (!profile) {
-    return NextResponse.json(
-      { error: "Business not found." },
-      { status: 404 }
-    );
-  }
-
-  const orderId = `VD_${businessId.slice(0, 8)}_${Date.now()}`;
-
   try {
+    const supabase = await createClient();
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      return NextResponse.json(
+        { error: "Unauthorized. Please login again." },
+        { status: 401 },
+      );
+    }
+
+    const { businessId, tier } = (await request.json()) as {
+      businessId: string;
+      tier: number;
+    };
+
+    if (!businessId || !tier || tier < 1 || tier > 4) {
+      return NextResponse.json(
+        { error: "Valid businessId and tier (1-4) are required." },
+        { status: 400 },
+      );
+    }
+
+    const amount = getTierAmount(tier);
+    if (!amount) {
+      return NextResponse.json({ error: "Invalid tier." }, { status: 400 });
+    }
+
+    // Verify the business belongs to this user.
+    const { data: profile, error: profileError } = await supabase
+      .from("business_profiles")
+      .select("id, business_name, tier")
+      .eq("id", businessId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (profileError) {
+      return NextResponse.json(
+        { error: `Failed to load business: ${profileError.message}` },
+        { status: 500 },
+      );
+    }
+
+    if (!profile) {
+      return NextResponse.json({ error: "Business not found." }, { status: 404 });
+    }
+
+    const orderId = `VD_${businessId.slice(0, 8)}_${Date.now()}`;
+
     const cashfree = getCashfree();
 
     const orderRequest = {
@@ -69,7 +99,7 @@ export async function POST(request: Request) {
     const orderData = response.data;
 
     // Save payment record
-    await supabase.from("payments").insert({
+    const { error: insertPaymentError } = await supabase.from("payments").insert({
       business_id: businessId,
       user_id: user.id,
       cf_order_id: orderId,
@@ -80,6 +110,13 @@ export async function POST(request: Request) {
       tier,
     });
 
+    if (insertPaymentError) {
+      return NextResponse.json(
+        { error: `Failed to save payment record: ${insertPaymentError.message}` },
+        { status: 500 },
+      );
+    }
+
     return NextResponse.json({
       orderId,
       paymentSessionId: orderData.payment_session_id,
@@ -88,8 +125,7 @@ export async function POST(request: Request) {
     });
   } catch (error: unknown) {
     console.error("Cashfree create order failed:", error);
-    const message =
-      error instanceof Error ? error.message : "Payment initiation failed.";
+    const message = getErrorMessage(error);
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

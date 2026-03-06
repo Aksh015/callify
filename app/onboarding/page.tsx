@@ -46,6 +46,17 @@ function createBusinessSlug(name: string) {
     );
 }
 
+async function parseJsonSafe<T>(response: Response): Promise<T | null> {
+    const raw = await response.text();
+    if (!raw.trim()) return null;
+
+    try {
+        return JSON.parse(raw) as T;
+    } catch {
+        return null;
+    }
+}
+
 export default function OnboardingPage() {
     const [step, setStep] = useState(0);
     const [tier, setTier] = useState<Tier | null>(null);
@@ -173,7 +184,7 @@ export default function OnboardingPage() {
                 body: formData,
             });
 
-            const data = await response.json();
+            const data = (await parseJsonSafe<{ error?: string; businessId?: string; knowledgeBaseId?: string; provisionedNumber?: string; dashboardUrl?: string | null }>(response)) || {};
             if (!response.ok) throw new Error(data.error || "Failed to save business profile.");
 
             setBusinessId(data.businessId || "");
@@ -215,7 +226,11 @@ export default function OnboardingPage() {
                 body: JSON.stringify({ businessId: currentBusinessId, tier }),
             });
 
-            const checkoutData = await checkoutRes.json();
+            const checkoutData = (await parseJsonSafe<{ error?: string; paymentSessionId?: string; orderId?: string }>(checkoutRes)) || {};
+            if (checkoutRes.status === 401) {
+                window.location.href = "/auth/login?redirect=/onboarding";
+                return;
+            }
             if (!checkoutRes.ok) throw new Error(checkoutData.error || "Payment initiation failed.");
 
             const { paymentSessionId, orderId } = checkoutData;
@@ -244,7 +259,10 @@ export default function OnboardingPage() {
                 body: JSON.stringify({ orderId }),
             });
 
-            const verifyData = await verifyRes.json();
+            const verifyData = (await parseJsonSafe<{ status?: string; error?: string }>(verifyRes)) || {};
+            if (!verifyRes.ok) {
+                throw new Error(verifyData.error || "Payment verification failed.");
+            }
 
             if (verifyData.status === "SUCCESS") {
                 setPaymentDone(true);

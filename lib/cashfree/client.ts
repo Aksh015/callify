@@ -6,10 +6,16 @@ const cfEnvironment =
     : CFEnvironment.SANDBOX;
 
 export function getCashfree() {
+  if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
+    throw new Error(
+      "Cashfree credentials are missing. Set CASHFREE_APP_ID and CASHFREE_SECRET_KEY.",
+    );
+  }
+
   return new Cashfree(
     cfEnvironment,
-    process.env.CASHFREE_APP_ID!,
-    process.env.CASHFREE_SECRET_KEY!
+    process.env.CASHFREE_APP_ID,
+    process.env.CASHFREE_SECRET_KEY
   );
 }
 
