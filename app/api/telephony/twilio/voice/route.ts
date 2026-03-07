@@ -48,7 +48,7 @@ export async function POST(request: Request) {
   const baseUrl = process.env.APP_BASE_URL || "http://localhost:3000";
   let actionUrl = `${baseUrl}/api/telephony/twilio/gather`;
   let languageCode = process.env.TELEPHONY_LANGUAGE_CODE || "en-IN";
-  let welcomePrompt = process.env.TELEPHONY_WELCOME_PROMPT || "Welcome to Callify. Please tell me your question.";
+  let welcomePrompt = process.env.TELEPHONY_WELCOME_PROMPT || "Welcome. Please tell me your question.";
 
   try {
     const form = await request.formData();
@@ -115,7 +115,7 @@ export async function GET() {
   return buildVoiceResponse({
     actionUrl: `${baseUrl}/api/telephony/twilio/gather`,
     languageCode: process.env.TELEPHONY_LANGUAGE_CODE || "en-IN",
-    welcomePrompt: process.env.TELEPHONY_WELCOME_PROMPT || "Welcome to Callify. Please tell me your question.",
+    welcomePrompt: process.env.TELEPHONY_WELCOME_PROMPT || "Welcome. Please tell me your question.",
   });
 }
 
