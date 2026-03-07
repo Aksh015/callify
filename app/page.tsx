@@ -89,6 +89,9 @@ export default function Home() {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
           <p className="text-lg font-semibold tracking-tight">VoiceDesk</p>
           <div className="flex items-center gap-2 sm:gap-4">
+            <Link href="/demo" className="text-sm text-slate-300 transition hover:text-white">
+              Try Demo
+            </Link>
             <a href="#plans" className="text-sm text-slate-300 transition hover:text-white">
               Plans
             </a>
@@ -176,6 +179,12 @@ export default function Home() {
               className="rounded-xl bg-cyan-400 px-6 py-3 font-medium text-slate-950 transition hover:-translate-y-0.5 hover:bg-cyan-300"
             >
               Start Onboarding
+            </Link>
+            <Link
+              href="/demo"
+              className="rounded-xl border border-cyan-300/40 bg-cyan-300/10 px-6 py-3 font-medium text-cyan-200 transition hover:bg-cyan-300/20"
+            >
+              Try Demo Chat
             </Link>
             <a
               href="#plans"

@@ -2,6 +2,7 @@ import { searchKnowledgeBase } from "@/lib/kb/retriever";
 
 export type RuntimeBusinessContext = {
   knowledgeBaseId?: string;
+  customContextText?: string;
   businessInfo?: {
     name?: string;
     address?: string;
@@ -108,6 +109,20 @@ export class MCPToolRouter {
     slots: Record<string, string>,
     context: RuntimeBusinessContext,
   ): Promise<MCPExecutionResult> {
+    const forcedContextText = context.customContextText?.trim();
+    if (forcedContextText) {
+      return {
+        ok: true,
+        action,
+        message: forcedContextText,
+        data: {
+          source: "custom_context_text",
+          bypassedAction: action,
+          slots,
+        },
+      };
+    }
+
     switch (action) {
       case "search_knowledge": {
         if (!context.knowledgeBaseId) {
@@ -140,6 +155,7 @@ export class MCPToolRouter {
           servicePricing.length > 0
             ? ` Services and pricing: ${servicePricing.map((item) => `${item.service} - ${item.price}`).join(", ")}.`
             : "";
+
         return {
           ok: true,
           action,

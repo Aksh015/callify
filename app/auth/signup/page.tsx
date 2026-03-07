@@ -3,11 +3,13 @@
 import { createClient } from "@/lib/supabase/client";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
-export default function SignupPage() {
+function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect") || "/onboarding";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -44,7 +46,7 @@ export default function SignupPage() {
 
       setSuccess(data.message || "Account created! Redirecting...");
       setTimeout(() => {
-        router.push("/auth/login");
+        router.push(`/auth/login?redirect=${encodeURIComponent(redirect)}`);
       }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signup failed.");
@@ -135,7 +137,7 @@ export default function SignupPage() {
             await supabase.auth.signInWithOAuth({
               provider: "google",
               options: {
-                redirectTo: `${window.location.origin}/auth/callback?redirect=/onboarding`,
+                redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirect)}`,
               },
             });
           }}
@@ -176,5 +178,13 @@ export default function SignupPage() {
         </p>
       </motion.div>
     </main>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
   );
 }

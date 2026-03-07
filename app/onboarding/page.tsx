@@ -106,6 +106,13 @@ export default function OnboardingPage() {
                 if (!res.ok) {
                     window.location.href = "/auth/login?redirect=/onboarding";
                 }
+
+                if (res.ok) {
+                    void fetch("/api/demo/migrate", { method: "POST" }).catch(() => {
+                        // Onboarding should continue even if demo migration is unavailable.
+                    });
+                }
+
                 setAuthChecked(true);
             })
             .catch(() => {

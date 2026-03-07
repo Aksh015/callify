@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { runRuntimeTurn } from "@/lib/runtime/orchestrator";
 import type { RuntimeBusinessContext } from "@/lib/mcp/router";
+import { getDemoContextText } from "@/lib/demoContextStore";
 
 export const runtime = "nodejs";
 
@@ -18,10 +19,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "utterance is required" }, { status: 400 });
     }
 
+    const fallbackContext: RuntimeBusinessContext = {
+      customContextText: getDemoContextText(),
+    };
+
     const result = await runRuntimeTurn({
       utterance: payload.utterance,
       languageCode: payload.languageCode,
-      context: payload.context,
+      context: {
+        ...fallbackContext,
+        ...(payload.context || {}),
+      },
     });
 
     return NextResponse.json(result);

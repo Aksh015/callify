@@ -30,6 +30,10 @@ function LoginForm() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Login failed.");
 
+      await fetch("/api/demo/migrate", { method: "POST" }).catch(() => {
+        // Login should proceed even if migration fails.
+      });
+
       router.push(redirect);
       router.refresh();
     } catch (err) {
