@@ -38,6 +38,8 @@ function buildSarvamPlaybackUrl(baseUrl: string, text: string, languageCode = "e
 function getSpeechFromForm(form: FormData) {
   return (
     String(form.get("SpeechResult") || "").trim() ||
+    String(form.get("UnstableSpeechResult") || "").trim() ||
+    String(form.get("TranscriptionText") || "").trim() ||
     String(form.get("speech") || "").trim() ||
     String(form.get("query") || "").trim() ||
     String(form.get("text") || "").trim()
@@ -103,8 +105,6 @@ export async function POST(request: Request) {
         } catch (sttError) {
           console.error("sarvam demo stt failed", sttError);
         }
-      } else {
-        speechResult = "";
       }
     }
 
