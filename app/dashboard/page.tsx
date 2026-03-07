@@ -32,11 +32,6 @@ export default async function DashboardPage() {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  // Block dashboard access if payment not completed
-  if (!profile || profile.plan_status !== "active") {
-    redirect("/onboarding");
-  }
-
   const { data: latestPayment } = await admin
     .from("payments")
     .select("tier, amount, currency, status, order_id, created_at")
@@ -44,6 +39,19 @@ export default async function DashboardPage() {
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+
+  const hasSuccessfulPayment = latestPayment?.status === "SUCCESS";
+
+  // Payment is the source of truth. Keep profile status in sync.
+  if (profile && hasSuccessfulPayment && profile.plan_status !== "active") {
+    await admin.from("business_profiles").update({ plan_status: "active" }).eq("id", profile.id);
+    profile.plan_status = "active";
+  }
+
+  // Block dashboard only when user is genuinely unpaid.
+  if (!profile || (!hasSuccessfulPayment && profile.plan_status !== "active")) {
+    redirect("/onboarding");
+  }
 
   const currentTier = latestPayment?.tier || 1;
 

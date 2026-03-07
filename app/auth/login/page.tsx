@@ -9,7 +9,7 @@ import { Suspense, useState } from "react";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") || "/onboarding";
+  const redirect = searchParams.get("redirect") || "/";
   const oauthError = searchParams.get("error") || "";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -35,7 +35,19 @@ function LoginForm() {
         // Login should proceed even if migration fails.
       });
 
-      router.push(redirect);
+      // Smart post-login routing: paid users -> dashboard, others -> main page.
+      try {
+        const meRes = await fetch("/api/auth/me");
+        const meData = await meRes.json();
+        if (meRes.ok && meData?.profile?.plan_status === "active") {
+          router.push("/dashboard");
+        } else {
+          router.push(redirect || "/");
+        }
+      } catch {
+        router.push(redirect || "/");
+      }
+
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed.");

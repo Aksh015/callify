@@ -127,6 +127,18 @@ export default function OnboardingPage() {
                     window.location.href = "/auth/login?redirect=/onboarding";
                     return;
                 }
+
+                return res.json();
+            })
+            .then((data) => {
+                if (!data) return;
+
+                // If already paid/active, skip onboarding entirely.
+                if (data?.profile?.plan_status === "active") {
+                    window.location.href = "/dashboard";
+                    return;
+                }
+
                 setAuthChecked(true);
             })
             .catch(() => {
