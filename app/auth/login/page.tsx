@@ -10,9 +10,10 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") || "/onboarding";
+  const oauthError = searchParams.get("error") || "";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(oauthError);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -104,12 +105,16 @@ function LoginForm() {
         <button
           onClick={async () => {
             const supabase = createClient();
-            await supabase.auth.signInWithOAuth({
+            const { error } = await supabase.auth.signInWithOAuth({
               provider: "google",
               options: {
-                redirectTo: `${window.location.origin}/auth/callback?redirect=${redirect}`,
+                redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirect)}`,
               },
             });
+
+            if (error) {
+              setError(error.message || "Google sign-in failed.");
+            }
           }}
           className="mt-4 flex w-full items-center justify-center gap-3 rounded-lg border border-white/15 bg-slate-900 py-2.5 font-medium text-slate-100 transition hover:bg-slate-800"
         >

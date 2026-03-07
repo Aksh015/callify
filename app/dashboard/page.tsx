@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import DashboardClient from "./dashboard-client";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,32 @@ export default async function DashboardPage() {
     .limit(1)
     .maybeSingle();
 
+  const currentTier = latestPayment?.tier || 1;
+
+  const { data: docs } = await admin
+    .from("kb_documents")
+    .select("id, title, file_name, document_kind, status, created_at")
+    .eq("business_profile_id", profile.id)
+    .order("created_at", { ascending: false })
+    .limit(20);
+
+  const { data: flags } = await admin
+    .from("feature_flags")
+    .select("whatsapp_enabled")
+    .eq("business_profile_id", profile.id)
+    .maybeSingle();
+
+  const { data: customToolsFact } = await admin
+    .from("business_facts")
+    .select("fact_value")
+    .eq("business_profile_id", profile.id)
+    .eq("fact_key", "custom_mcp_tools")
+    .maybeSingle();
+
+  const customTools = Array.isArray(customToolsFact?.fact_value?.tools)
+    ? customToolsFact?.fact_value?.tools
+    : [];
+
   return (
     <main className="min-h-screen bg-[#06101a] px-5 py-10 text-[#e7f1ff] sm:px-8">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -53,16 +80,10 @@ export default async function DashboardPage() {
             {profile?.business_name || "Your business workspace"}
           </h1>
           <p className="mt-3 max-w-3xl text-sm text-[#bfd2ed] sm:text-base">
-            Onboarding is complete through payment. Next, we can add PDF ingestion, WhatsApp flows,
-            and custom MCP tools depending on your active tier.
+            Operations workspace for Callify. Manage your business knowledge base, channel features,
+            and advanced automation based on your active tier.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              href="/demo"
-              className="rounded-full bg-[#89e8ff] px-5 py-2 text-sm font-semibold text-[#07223d]"
-            >
-              Open Demo
-            </Link>
             <Link
               href="/onboarding"
               className="rounded-full border border-white/20 px-5 py-2 text-sm text-[#d7e5f9] hover:bg-white/10"
@@ -97,15 +118,23 @@ export default async function DashboardPage() {
           </div>
 
           <div className="rounded-2xl border border-[#8edcff]/30 bg-[#0a1f34] p-5">
-            <h2 className="text-lg font-semibold">Next Build Items</h2>
+            <h2 className="text-lg font-semibold">Workspace Status</h2>
             <ul className="mt-4 space-y-2 text-sm text-[#b5d0ee]">
-              <li>- Upload PDF and index KB documents</li>
-              <li>- Enable WhatsApp automation for eligible tiers</li>
-              <li>- Add custom MCP tools for Tier 4</li>
-              <li>- Configure feature gates by tier</li>
+              <li>- Documents uploaded: {(docs || []).length}</li>
+              <li>- WhatsApp enabled: {flags?.whatsapp_enabled ? "Yes" : "No"}</li>
+              <li>- Custom MCP tools: {customTools.length}</li>
+              <li>- Active tier gates: Tier {currentTier}</li>
             </ul>
           </div>
         </section>
+
+        <DashboardClient
+          tier={currentTier}
+          tierName={tierNames[currentTier] || "Starter"}
+          whatsappEnabled={Boolean(flags?.whatsapp_enabled)}
+          documents={docs || []}
+          customTools={customTools}
+        />
       </div>
     </main>
   );
