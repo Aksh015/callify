@@ -45,19 +45,18 @@ export async function POST(request: Request) {
         .from("payments")
         .update({
           status: "SUCCESS",
-          cf_payment_id: orderData.cf_order_id?.toString() || null,
-          payment_method: payload?.data?.payment?.payment_group || null,
+          raw_payload: payload,
         })
-        .eq("cf_order_id", orderId)
-        .select("business_id, tier")
+        .eq("order_id", orderId)
+        .select("business_profile_id")
         .single();
 
-      // Update business profile tier
+      // Activate business profile plan.
       if (payment) {
         await supabase
           .from("business_profiles")
-          .update({ tier: payment.tier })
-          .eq("id", payment.business_id);
+          .update({ plan_status: "active" })
+          .eq("id", payment.business_profile_id);
       }
     } else if (
       eventType === "PAYMENT_FAILED_WEBHOOK" ||
@@ -66,7 +65,7 @@ export async function POST(request: Request) {
       await supabase
         .from("payments")
         .update({ status: "FAILED" })
-        .eq("cf_order_id", orderId);
+        .eq("order_id", orderId);
     }
 
     return NextResponse.json({ ok: true });

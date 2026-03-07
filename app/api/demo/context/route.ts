@@ -9,9 +9,10 @@ export async function GET() {
   const baseUrl = process.env.APP_BASE_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   const demoPhoneNumber = process.env.TWILIO_DEMO_PHONE_NUMBER || "";
   const demoWebhookUrl = `${baseUrl}/api/telephony/twilio/demo/voice`;
+  const text = await getDemoContextText();
 
   return NextResponse.json({
-    text: getDemoContextText(),
+    text,
     defaultText: getDefaultDemoContextText(),
     demoPhoneNumber,
     demoWebhookUrl,
@@ -23,6 +24,6 @@ export async function POST(request: Request) {
   const demoPhoneNumber = process.env.TWILIO_DEMO_PHONE_NUMBER || "";
   const demoWebhookUrl = `${baseUrl}/api/telephony/twilio/demo/voice`;
   const payload = (await request.json().catch(() => ({}))) as { text?: string };
-  const text = setDemoContextText(String(payload.text || ""));
+  const text = await setDemoContextText(String(payload.text || ""));
   return NextResponse.json({ ok: true, text, demoPhoneNumber, demoWebhookUrl });
 }

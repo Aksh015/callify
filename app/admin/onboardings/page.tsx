@@ -7,14 +7,11 @@ export default async function OnboardingsAdminPage() {
     let submissions: Array<{
         id: string;
         business_name: string;
-        owner_name: string;
-        email: string;
         phone: string;
         city: string;
         category: string;
-        tier: number;
-        provisioned_number: string;
-        dashboard_url: string | null;
+        timezone: string;
+        plan_status: string;
         created_at: string;
     }> = [];
 
@@ -24,7 +21,7 @@ export default async function OnboardingsAdminPage() {
         const supabase = await createClient();
         const { data, error } = await supabase
             .from("business_profiles")
-            .select("id, business_name, owner_name, email, phone, city, category, tier, provisioned_number, dashboard_url, created_at")
+            .select("id, business_name, phone, city, category, timezone, plan_status, created_at")
             .order("created_at", { ascending: false })
             .limit(100);
 
@@ -60,11 +57,10 @@ export default async function OnboardingsAdminPage() {
                             <thead className="bg-white/5 text-slate-300">
                                 <tr>
                                     <th className="px-4 py-3 font-medium">Business</th>
-                                    <th className="px-4 py-3 font-medium">Owner</th>
+                                    <th className="px-4 py-3 font-medium">Contact</th>
                                     <th className="px-4 py-3 font-medium">Category</th>
-                                    <th className="px-4 py-3 font-medium">Tier</th>
-                                    <th className="px-4 py-3 font-medium">Provisioned Number</th>
-                                    <th className="px-4 py-3 font-medium">Dashboard</th>
+                                    <th className="px-4 py-3 font-medium">Timezone</th>
+                                    <th className="px-4 py-3 font-medium">Plan Status</th>
                                     <th className="px-4 py-3 font-medium">Created</th>
                                 </tr>
                             </thead>
@@ -76,26 +72,12 @@ export default async function OnboardingsAdminPage() {
                                             <p className="text-xs text-slate-400">{item.city}</p>
                                         </td>
                                         <td className="px-4 py-3">
-                                            <p>{item.owner_name}</p>
-                                            <p className="text-xs text-slate-400">{item.email}</p>
+                                            <p>{item.phone || "-"}</p>
+                                            <p className="text-xs text-slate-400">Contact</p>
                                         </td>
                                         <td className="px-4 py-3 capitalize">{item.category}</td>
-                                        <td className="px-4 py-3">Tier {item.tier}</td>
-                                        <td className="px-4 py-3">{item.provisioned_number}</td>
-                                        <td className="px-4 py-3">
-                                            {item.dashboard_url ? (
-                                                <a
-                                                    href={item.dashboard_url}
-                                                    className="text-cyan-300 hover:text-cyan-200"
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                >
-                                                    Open
-                                                </a>
-                                            ) : (
-                                                <span className="text-slate-500">—</span>
-                                            )}
-                                        </td>
+                                        <td className="px-4 py-3">{item.timezone}</td>
+                                        <td className="px-4 py-3 capitalize">{item.plan_status}</td>
                                         <td className="px-4 py-3 text-slate-300">
                                             {new Date(item.created_at).toLocaleString()}
                                         </td>

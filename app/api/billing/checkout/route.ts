@@ -60,7 +60,7 @@ export async function POST(request: Request) {
     // Verify the business belongs to this user.
     const { data: profile, error: profileError } = await supabase
       .from("business_profiles")
-      .select("id, business_name, tier")
+      .select("id, business_name, plan_status")
       .eq("id", businessId)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
         customer_phone: "9999999999", // placeholder - will be updated from profile
       },
       order_meta: {
-        return_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/onboarding?payment_status=success&order_id=${orderId}`,
+        return_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/dashboard?payment_status=success&order_id=${orderId}`,
       },
       order_note: `VoiceDesk Tier ${tier} - ${profile.business_name}`,
     };
@@ -100,12 +100,15 @@ export async function POST(request: Request) {
 
     // Save payment record
     const { error: insertPaymentError } = await supabase.from("payments").insert({
-      business_id: businessId,
+      business_profile_id: businessId,
       user_id: user.id,
-      cf_order_id: orderId,
-      payment_session_id: orderData.payment_session_id,
+      order_id: orderId,
+      provider: "cashfree",
       amount,
       currency: "INR",
+      raw_payload: {
+        payment_session_id: orderData.payment_session_id,
+      },
       status: "PENDING",
       tier,
     });

@@ -81,7 +81,7 @@ export async function POST(request: Request) {
 
     const runtimeContext = isDemoInbound
       ? {
-          customContextText: getDemoContextText(),
+          customContextText: await getDemoContextText(),
         }
       : getDefaultRuntimeContext();
     const runtimeResult = await runRuntimeTurn({

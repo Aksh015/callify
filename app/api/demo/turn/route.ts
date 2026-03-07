@@ -25,7 +25,7 @@ export async function POST(request: Request) {
     }
 
     const context: RuntimeBusinessContext = {
-      customContextText: getDemoContextText(),
+      customContextText: await getDemoContextText(),
       ...(body.context || {}),
     };
 

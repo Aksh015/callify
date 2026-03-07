@@ -35,7 +35,9 @@ export async function POST(request: Request) {
       (isDemoInbound
         ? process.env.TELEPHONY_DEMO_WELCOME_PROMPT
         : process.env.TELEPHONY_WELCOME_PROMPT) ||
-      "Welcome to VoiceDesk AI support. Please tell me your question.";
+      (isDemoInbound
+        ? "Welcome to the demo line. Please ask your question."
+        : "Welcome to AI support. Please tell me your question.");
 
     console.log(
       JSON.stringify({

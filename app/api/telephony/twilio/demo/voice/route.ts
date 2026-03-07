@@ -17,7 +17,7 @@ function buildVoiceResponse() {
     process.env.TELEPHONY_DEMO_LANGUAGE_CODE || process.env.TELEPHONY_LANGUAGE_CODE || "en-IN";
   const welcomePrompt =
     process.env.TELEPHONY_DEMO_WELCOME_PROMPT ||
-    "Welcome to the VoiceDesk demo line. Please ask your question.";
+    "Welcome to the demo line. Please ask your question.";
 
   return twimlResponse(
     gatherSpeechTwiml({

@@ -2,49 +2,64 @@
 
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
-type BusinessCategory = "doctor" | "hotel";
 type Tier = 1 | 2 | 3 | 4;
+type Category = "doctor" | "hotel" | "salon" | "other";
 
 type BusinessDetails = {
     businessName: string;
-    ownerName: string;
-    email: string;
-    phone: string;
-    category: BusinessCategory;
+    category: Category;
     city: string;
+    phone: string;
+    timezone: string;
+    systemPrompt: string;
 };
 
-type IntegrationConfig = {
-    messagingProvider: string;
-    messagingToken: string;
-    whatsappNumber: string;
-    whatsappApiKey: string;
-    emailFrom: string;
-    emailApiKey: string;
-    enableDashboard: boolean;
-    customMcpTools: string;
-};
+const steps = ["Basic Details", "Choose Tier", "Payment"];
 
-const steps = ["Business", "KB Upload", "Tier", "Config", "Payment", "Provisioned"];
-
-const tierInfo: Record<Tier, { label: string; price: string; amount: number; desc: string }> = {
-    1: { label: "Tier 1 • Starter", price: "₹6/mo", amount: 6, desc: "KB + number provisioning only" },
-    2: { label: "Tier 2 • Connect", price: "₹7/mo", amount: 7, desc: "Tier 1 + messaging, WhatsApp, email config" },
-    3: { label: "Tier 3 • Ops", price: "₹8/mo", amount: 8, desc: "Tier 2 + hosted dashboard link provisioning" },
-    4: { label: "Tier 4 • Custom", price: "₹9/mo", amount: 9, desc: "Tier 3 baseline + optional modules + MCP customization" },
-};
-
-function createBusinessSlug(name: string) {
-    return (
-        name
-            .toLowerCase()
-            .replace(/[^a-z0-9\s-]/g, "")
-            .trim()
-            .replace(/\s+/g, "-") || "business"
-    );
-}
+const tiers: Array<{
+    id: Tier;
+    name: string;
+    price: string;
+    amount: number;
+    pitch: string;
+    benefits: string[];
+}> = [
+        {
+            id: 1,
+            name: "Starter",
+            price: "Rs 6 / month",
+            amount: 6,
+            pitch: "For launch and core customer call handling",
+            benefits: ["AI call handling", "Basic business context", "One active voice flow"],
+        },
+        {
+            id: 2,
+            name: "Connect",
+            price: "Rs 7 / month",
+            amount: 7,
+            pitch: "For teams that want messaging channels",
+            benefits: ["Everything in Starter", "WhatsApp enablement", "Email and message actions"],
+        },
+        {
+            id: 3,
+            name: "Growth",
+            price: "Rs 8 / month",
+            amount: 8,
+            pitch: "For operational teams scaling support",
+            benefits: ["Everything in Connect", "Operations dashboard", "Priority routing support"],
+        },
+        {
+            id: 4,
+            name: "Elite",
+            price: "Rs 9 / month",
+            amount: 9,
+            pitch: "For advanced workflows and customization",
+            benefits: ["Everything in Growth", "Custom MCP tool hooks", "Advanced automation options"],
+        },
+    ];
 
 async function parseJsonSafe<T>(response: Response): Promise<T | null> {
     const raw = await response.text();
@@ -57,624 +72,6 @@ async function parseJsonSafe<T>(response: Response): Promise<T | null> {
     }
 }
 
-export default function OnboardingPage() {
-    const [step, setStep] = useState(0);
-    const [tier, setTier] = useState<Tier | null>(null);
-    const [knowledgeBaseId, setKnowledgeBaseId] = useState("");
-    const [businessId, setBusinessId] = useState("");
-    const [provisionedNumber, setProvisionedNumber] = useState("");
-    const [persistedDashboardUrl, setPersistedDashboardUrl] = useState<string | null>(null);
-    const [isSubmitting, setIsSubmitting] = useState(false);
-    const [isPaying, setIsPaying] = useState(false);
-    const [paymentDone, setPaymentDone] = useState(false);
-    const [kbTestQuery, setKbTestQuery] = useState("");
-    const [kbTestResponse, setKbTestResponse] = useState("");
-    const [kbTestLoading, setKbTestLoading] = useState(false);
-    const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-    const [errors, setErrors] = useState<string[]>([]);
-    const [authChecked, setAuthChecked] = useState(false);
-
-    const [business, setBusiness] = useState<BusinessDetails>({
-        businessName: "",
-        ownerName: "",
-        email: "",
-        phone: "",
-        category: "doctor",
-        city: "",
-    });
-
-    const [config, setConfig] = useState<IntegrationConfig>({
-        messagingProvider: "",
-        messagingToken: "",
-        whatsappNumber: "",
-        whatsappApiKey: "",
-        emailFrom: "",
-        emailApiKey: "",
-        enableDashboard: false,
-        customMcpTools: "",
-    });
-
-    const dashboardUrl = useMemo(() => {
-        const slug = createBusinessSlug(business.businessName);
-        return `https://${slug}.mydomain.in`;
-    }, [business.businessName]);
-
-    // Check auth on mount
-    useEffect(() => {
-        fetch("/api/auth/me")
-            .then((res) => {
-                if (!res.ok) {
-                    window.location.href = "/auth/login?redirect=/onboarding";
-                }
-
-                if (res.ok) {
-                    void fetch("/api/demo/migrate", { method: "POST" }).catch(() => {
-                        // Onboarding should continue even if demo migration is unavailable.
-                    });
-                }
-
-                setAuthChecked(true);
-            })
-            .catch(() => {
-                window.location.href = "/auth/login?redirect=/onboarding";
-            });
-    }, []);
-
-    const validateBusinessStep = () => {
-        const currentErrors: string[] = [];
-        if (!business.businessName.trim()) currentErrors.push("Business name is required.");
-        if (!business.ownerName.trim()) currentErrors.push("Owner name is required.");
-        if (!business.email.trim()) currentErrors.push("Email is required.");
-        if (!business.phone.trim()) currentErrors.push("Phone is required.");
-        if (!business.city.trim()) currentErrors.push("City is required.");
-        setErrors(currentErrors);
-        return currentErrors.length === 0;
-    };
-
-    const validateKbStep = () => {
-        const currentErrors: string[] = [];
-        if (uploadedFiles.length === 0) currentErrors.push("Please upload at least one KB file.");
-        if (uploadedFiles.length > 5) currentErrors.push("You can upload up to 5 files only.");
-        uploadedFiles.forEach((file) => {
-            if (file.size > 10 * 1024 * 1024) {
-                currentErrors.push(`${file.name} is larger than 10MB.`);
-            }
-        });
-        setErrors(currentErrors);
-        return currentErrors.length === 0;
-    };
-
-    const validateTierStep = () => {
-        const currentErrors: string[] = [];
-        if (!tier) currentErrors.push("Please choose one tier.");
-        setErrors(currentErrors);
-        return currentErrors.length === 0;
-    };
-
-    const validateConfigStep = () => {
-        if (!tier) return false;
-        const currentErrors: string[] = [];
-        const needsTier2Fields = tier === 2 || tier === 3;
-
-        if (needsTier2Fields) {
-            if (!config.messagingProvider.trim()) currentErrors.push("Messaging provider is required.");
-            if (!config.messagingToken.trim()) currentErrors.push("Messaging token is required.");
-            if (!config.whatsappNumber.trim()) currentErrors.push("WhatsApp number is required.");
-            if (!config.whatsappApiKey.trim()) currentErrors.push("WhatsApp API key is required.");
-            if (!config.emailFrom.trim()) currentErrors.push("Email from address is required.");
-            if (!config.emailApiKey.trim()) currentErrors.push("Email API key is required.");
-        }
-
-        if (tier === 4 && config.customMcpTools.trim().length < 20) {
-            currentErrors.push("For Tier 4, add MCP customization text (20+ chars).");
-        }
-
-        setErrors(currentErrors);
-        return currentErrors.length === 0;
-    };
-
-    // Step 4 → Save business profile first, then pay
-    const saveBusinessProfile = async () => {
-        if (!tier) return;
-        setIsSubmitting(true);
-        setErrors([]);
-
-        try {
-            const formData = new FormData();
-            formData.append("business", JSON.stringify(business));
-            formData.append("tier", String(tier));
-            formData.append("integrationConfig", JSON.stringify(config));
-            uploadedFiles.forEach((file) => formData.append("kbFiles", file));
-
-            const response = await fetch("/api/onboarding", {
-                method: "POST",
-                body: formData,
-            });
-
-            const data = (await parseJsonSafe<{ error?: string; businessId?: string; knowledgeBaseId?: string; provisionedNumber?: string; dashboardUrl?: string | null }>(response)) || {};
-            if (!response.ok) throw new Error(data.error || "Failed to save business profile.");
-
-            setBusinessId(data.businessId || "");
-            setKnowledgeBaseId(data.knowledgeBaseId || "");
-            setProvisionedNumber(data.provisionedNumber || "");
-            setPersistedDashboardUrl(data.dashboardUrl || null);
-            return data.businessId as string;
-        } catch (error) {
-            setErrors([error instanceof Error ? error.message : "Failed to save. Please try again."]);
-            return null;
-        } finally {
-            setIsSubmitting(false);
-        }
-    };
-
-    // Cashfree checkout
-    const handlePayment = async () => {
-        if (!tier) return;
-
-        setIsPaying(true);
-        setErrors([]);
-
-        try {
-            // Save profile first if not done
-            let currentBusinessId = businessId;
-            if (!currentBusinessId) {
-                const id = await saveBusinessProfile();
-                if (!id) {
-                    setIsPaying(false);
-                    return;
-                }
-                currentBusinessId = id;
-            }
-
-            // Create Cashfree order
-            const checkoutRes = await fetch("/api/billing/checkout", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ businessId: currentBusinessId, tier }),
-            });
-
-            const checkoutData = (await parseJsonSafe<{ error?: string; paymentSessionId?: string; orderId?: string }>(checkoutRes)) || {};
-            if (checkoutRes.status === 401) {
-                window.location.href = "/auth/login?redirect=/onboarding";
-                return;
-            }
-            if (!checkoutRes.ok) throw new Error(checkoutData.error || "Payment initiation failed.");
-
-            const { paymentSessionId, orderId } = checkoutData;
-
-            // Load Cashfree JS SDK
-            const cashfree = await loadCashfreeSDK();
-            if (!cashfree) throw new Error("Failed to load payment SDK.");
-
-            const result = await cashfree.checkout({
-                paymentSessionId,
-                redirectTarget: "_modal",
-            });
-
-            // After modal closes — verify payment
-            if (result.error) {
-                // Payment failed or cancelled
-                setErrors([result.error.message || "Payment was cancelled."]);
-                setIsPaying(false);
-                return;
-            }
-
-            // Verify with backend
-            const verifyRes = await fetch("/api/billing/verify", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ orderId }),
-            });
-
-            const verifyData = (await parseJsonSafe<{ status?: string; error?: string }>(verifyRes)) || {};
-            if (!verifyRes.ok) {
-                throw new Error(verifyData.error || "Payment verification failed.");
-            }
-
-            if (verifyData.status === "SUCCESS") {
-                setPaymentDone(true);
-                setStep(5);
-            } else if (verifyData.status === "PENDING") {
-                setErrors(["Payment is being processed. Please wait and refresh."]);
-            } else {
-                setErrors(["Payment failed. Please try again."]);
-            }
-        } catch (error) {
-            setErrors([error instanceof Error ? error.message : "Payment failed."]);
-        } finally {
-            setIsPaying(false);
-        }
-    };
-
-    const nextStep = async () => {
-        const validators: Record<number, () => boolean> = {
-            0: validateBusinessStep,
-            1: validateKbStep,
-            2: validateTierStep,
-            3: validateConfigStep,
-            4: () => true,
-        };
-
-        const isValid = validators[step]?.() ?? true;
-        if (!isValid) return;
-
-        if (step === 4) {
-            // Payment step — handled by handlePayment button
-            return;
-        }
-
-        setErrors([]);
-        setStep((prev) => Math.min(prev + 1, 5));
-    };
-
-    const previousStep = () => {
-        setErrors([]);
-        setStep((prev) => Math.max(prev - 1, 0));
-    };
-
-    const onUploadChange = (files: FileList | null) => {
-        if (!files) return;
-        setUploadedFiles(Array.from(files));
-    };
-
-    const resetFlow = () => {
-        setStep(0);
-        setKnowledgeBaseId("");
-        setBusinessId("");
-        setProvisionedNumber("");
-        setPersistedDashboardUrl(null);
-        setKbTestQuery("");
-        setKbTestResponse("");
-        setTier(null);
-        setUploadedFiles([]);
-        setErrors([]);
-        setPaymentDone(false);
-    };
-
-    const runKbTest = async () => {
-        if (!knowledgeBaseId || !kbTestQuery.trim()) return;
-        setKbTestLoading(true);
-        setKbTestResponse("");
-
-        try {
-            const response = await fetch("/api/runtime/turn", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    utterance: kbTestQuery,
-                    languageCode: "en-IN",
-                    context: {
-                        knowledgeBaseId,
-                        businessInfo: {
-                            name: business.businessName,
-                            openingHours: "9 AM - 10 PM",
-                        },
-                    },
-                }),
-            });
-
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.error || "Failed to run KB test.");
-            setKbTestResponse(data.responseText || "No response generated.");
-        } catch (error) {
-            setKbTestResponse(error instanceof Error ? error.message : "Failed to run KB test.");
-        } finally {
-            setKbTestLoading(false);
-        }
-    };
-
-    const handleLogout = async () => {
-        await fetch("/api/auth/logout", { method: "POST" });
-        window.location.href = "/";
-    };
-
-    if (!authChecked) {
-        return (
-            <main className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-100">
-                <p className="text-slate-400">Loading...</p>
-            </main>
-        );
-    }
-
-    return (
-        <main className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100">
-            <div className="mx-auto max-w-6xl">
-                <div className="mb-6 flex items-center justify-between">
-                    <Link href="/" className="text-sm text-cyan-300 transition hover:text-cyan-200">
-                        ← Back to Home
-                    </Link>
-                    <div className="flex items-center gap-4">
-                        <p className="text-sm text-slate-400">
-                            Step {step + 1} of {steps.length}
-                        </p>
-                        <button
-                            onClick={handleLogout}
-                            className="rounded-lg border border-white/15 px-3 py-1 text-xs text-slate-400 hover:text-white"
-                        >
-                            Sign Out
-                        </button>
-                    </div>
-                </div>
-
-                <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="rounded-2xl border border-white/10 bg-white/[0.04] p-6"
-                >
-                    <h1 className="text-3xl font-semibold">VoiceDesk Onboarding</h1>
-                    <p className="mt-2 text-sm text-slate-400">
-                        Complete setup, pay for your tier, and provision your AI customer care number.
-                    </p>
-
-                    <div className="mt-4 grid gap-2 sm:grid-cols-3 md:grid-cols-6">
-                        {steps.map((item, idx) => (
-                            <div
-                                key={item}
-                                className={`rounded px-2 py-1 text-center text-xs ${idx <= step ? "bg-cyan-400/20 text-cyan-200" : "bg-white/5 text-slate-400"}`}
-                            >
-                                {item}
-                            </div>
-                        ))}
-                    </div>
-
-                    {errors.length > 0 && (
-                        <div className="mt-5 rounded-xl border border-rose-300/30 bg-rose-500/10 p-4 text-sm text-rose-200">
-                            <ul className="space-y-1">
-                                {errors.map((error) => (
-                                    <li key={error}>• {error}</li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-
-                    <div className="mt-6">
-                        {step === 0 && (
-                            <section className="grid gap-4 md:grid-cols-2">
-                                <Field label="Business Name" value={business.businessName} onChange={(v) => setBusiness((p) => ({ ...p, businessName: v }))} />
-                                <Field label="Owner Name" value={business.ownerName} onChange={(v) => setBusiness((p) => ({ ...p, ownerName: v }))} />
-                                <Field label="Email" type="email" value={business.email} onChange={(v) => setBusiness((p) => ({ ...p, email: v }))} />
-                                <Field label="Phone" value={business.phone} onChange={(v) => setBusiness((p) => ({ ...p, phone: v }))} />
-                                <Field label="City" value={business.city} onChange={(v) => setBusiness((p) => ({ ...p, city: v }))} />
-                                <label className="space-y-2">
-                                    <span className="text-sm text-slate-300">Category</span>
-                                    <select
-                                        value={business.category}
-                                        onChange={(e) => setBusiness((p) => ({ ...p, category: e.target.value as BusinessCategory }))}
-                                        className="w-full rounded-lg border border-white/15 bg-slate-900 px-3 py-2"
-                                    >
-                                        <option value="doctor">Doctor</option>
-                                        <option value="hotel">Hotel</option>
-                                    </select>
-                                </label>
-                            </section>
-                        )}
-
-                        {step === 1 && (
-                            <section>
-                                <h2 className="text-xl font-semibold">Upload Knowledge Base</h2>
-                                <p className="mt-2 text-sm text-slate-400">Upload PDFs/TXT/CSV (up to 5 files, 10MB each).</p>
-                                <div className="mt-4 rounded-xl border border-dashed border-white/20 p-5">
-                                    <input
-                                        type="file"
-                                        multiple
-                                        accept=".pdf,.txt,.csv"
-                                        onChange={(e) => onUploadChange(e.target.files)}
-                                        className="block w-full text-sm file:mr-4 file:rounded file:border-0 file:bg-cyan-300 file:px-4 file:py-2 file:text-slate-900"
-                                    />
-                                </div>
-                                {uploadedFiles.length > 0 && (
-                                    <ul className="mt-3 space-y-1 text-sm text-slate-300">
-                                        {uploadedFiles.map((f) => (
-                                            <li key={f.name}>• {f.name} ({(f.size / (1024 * 1024)).toFixed(2)} MB)</li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </section>
-                        )}
-
-                        {step === 2 && (
-                            <section>
-                                <h2 className="text-xl font-semibold">Choose Tier</h2>
-                                <div className="mt-4 grid gap-3">
-                                    {([1, 2, 3, 4] as Tier[]).map((value) => (
-                                        <button
-                                            key={value}
-                                            type="button"
-                                            onClick={() => setTier(value)}
-                                            className={`rounded-xl border p-4 text-left ${tier === value ? "border-cyan-300 bg-cyan-400/15" : "border-white/10 bg-white/[0.02]"}`}
-                                        >
-                                            <div className="flex items-center justify-between">
-                                                <p className="font-medium">{tierInfo[value].label}</p>
-                                                <p className="text-lg font-semibold text-cyan-200">{tierInfo[value].price}</p>
-                                            </div>
-                                            <p className="mt-1 text-sm text-slate-300">{tierInfo[value].desc}</p>
-                                        </button>
-                                    ))}
-                                </div>
-                            </section>
-                        )}
-
-                        {step === 3 && tier && (
-                            <section className="space-y-4">
-                                <h2 className="text-xl font-semibold">Tier Configuration</h2>
-                                {(tier === 2 || tier === 3) && (
-                                    <div className="grid gap-4 md:grid-cols-2">
-                                        <Field label="Messaging Provider" value={config.messagingProvider} onChange={(v) => setConfig((p) => ({ ...p, messagingProvider: v }))} />
-                                        <Field label="Messaging Token" value={config.messagingToken} onChange={(v) => setConfig((p) => ({ ...p, messagingToken: v }))} />
-                                        <Field label="WhatsApp Number" value={config.whatsappNumber} onChange={(v) => setConfig((p) => ({ ...p, whatsappNumber: v }))} />
-                                        <Field label="WhatsApp API Key" value={config.whatsappApiKey} onChange={(v) => setConfig((p) => ({ ...p, whatsappApiKey: v }))} />
-                                        <Field label="Email From" value={config.emailFrom} onChange={(v) => setConfig((p) => ({ ...p, emailFrom: v }))} />
-                                        <Field label="Email API Key" value={config.emailApiKey} onChange={(v) => setConfig((p) => ({ ...p, emailApiKey: v }))} />
-                                    </div>
-                                )}
-
-                                {tier === 4 && (
-                                    <div className="space-y-3 rounded-xl border border-white/10 p-4">
-                                        <label className="flex items-center gap-2 text-sm">
-                                            <input
-                                                type="checkbox"
-                                                checked={config.enableDashboard}
-                                                onChange={(e) => setConfig((p) => ({ ...p, enableDashboard: e.target.checked }))}
-                                            />
-                                            Enable Dashboard
-                                        </label>
-                                        <label className="space-y-2 block">
-                                            <span className="text-sm text-slate-300">MCP Tool Customization</span>
-                                            <textarea
-                                                value={config.customMcpTools}
-                                                onChange={(e) => setConfig((p) => ({ ...p, customMcpTools: e.target.value }))}
-                                                className="h-24 w-full rounded-lg border border-white/15 bg-slate-900 px-3 py-2"
-                                            />
-                                        </label>
-                                    </div>
-                                )}
-                            </section>
-                        )}
-
-                        {step === 4 && tier && (
-                            <section>
-                                <h2 className="text-xl font-semibold">Payment</h2>
-                                <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-6">
-                                    <div className="flex items-center justify-between border-b border-white/10 pb-4">
-                                        <div>
-                                            <p className="font-medium">{tierInfo[tier].label}</p>
-                                            <p className="mt-1 text-sm text-slate-400">{tierInfo[tier].desc}</p>
-                                        </div>
-                                        <p className="text-2xl font-semibold text-cyan-200">{tierInfo[tier].price}</p>
-                                    </div>
-                                    <div className="mt-4 space-y-2 text-sm text-slate-300">
-                                        <div className="flex justify-between">
-                                            <span>Business</span>
-                                            <span className="text-slate-100">{business.businessName}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span>Category</span>
-                                            <span className="capitalize text-slate-100">{business.category}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span>KB Files</span>
-                                            <span className="text-slate-100">{uploadedFiles.length} uploaded</span>
-                                        </div>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={handlePayment}
-                                        disabled={isPaying || isSubmitting}
-                                        className="mt-6 w-full rounded-xl bg-emerald-500 py-3 font-medium text-white transition hover:bg-emerald-400 disabled:opacity-60"
-                                    >
-                                        {isPaying ? "Processing Payment..." : isSubmitting ? "Saving..." : `Pay ₹${tierInfo[tier].amount} with Cashfree`}
-                                    </button>
-                                    <p className="mt-3 text-center text-xs text-slate-500">
-                                        Secure payment via Cashfree Payment Gateway
-                                    </p>
-                                </div>
-                            </section>
-                        )}
-
-                        {step === 5 && (
-                            <section className="space-y-4">
-                                <h2 className="text-2xl font-semibold text-emerald-300">Provisioning Complete</h2>
-                                <p className="text-sm text-slate-300">
-                                    {paymentDone
-                                        ? "Payment successful! Your tier is active and number is provisioned."
-                                        : "Your Tier setup is saved and number is provisioned."}
-                                </p>
-                                <div className="rounded-xl border border-emerald-300/30 bg-emerald-400/10 p-4">
-                                    <p className="text-sm">Issued Number</p>
-                                    <p className="text-3xl font-semibold">{provisionedNumber}</p>
-                                </div>
-                                {tier && (
-                                    <div className="rounded-xl border border-cyan-300/20 bg-cyan-400/5 p-3">
-                                        <p className="text-sm text-cyan-200">Active Plan: {tierInfo[tier].label} — {tierInfo[tier].price}</p>
-                                    </div>
-                                )}
-                                <div className="rounded-xl border border-white/10 p-4 text-sm">
-                                    <p>Knowledge Base ID: {knowledgeBaseId || "-"}</p>
-                                    {(tier === 3 || (tier === 4 && config.enableDashboard)) && (
-                                        <p>
-                                            Dashboard URL:{" "}
-                                            <a href={persistedDashboardUrl || dashboardUrl} className="text-cyan-300">
-                                                {persistedDashboardUrl || dashboardUrl}
-                                            </a>
-                                        </p>
-                                    )}
-                                </div>
-
-                                <div className="rounded-xl border border-cyan-300/20 bg-cyan-400/5 p-4">
-                                    <p className="text-sm font-medium text-cyan-200">Tier-1 KB Test</p>
-                                    <p className="mt-1 text-xs text-slate-400">
-                                        Ask a question from uploaded PDF/TXT KB and test MCP `search_knowledge` instantly.
-                                    </p>
-                                    <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-                                        <input
-                                            value={kbTestQuery}
-                                            onChange={(event) => setKbTestQuery(event.target.value)}
-                                            placeholder="Example: what is refund policy?"
-                                            className="w-full rounded-lg border border-white/15 bg-slate-900 px-3 py-2 text-sm"
-                                        />
-                                        <button
-                                            type="button"
-                                            onClick={runKbTest}
-                                            disabled={kbTestLoading || !knowledgeBaseId}
-                                            className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-medium text-slate-900 disabled:opacity-50"
-                                        >
-                                            {kbTestLoading ? "Testing..." : "Test Query"}
-                                        </button>
-                                    </div>
-                                    {kbTestResponse && (
-                                        <div className="mt-3 rounded-lg border border-white/10 bg-black/20 p-3 text-sm text-slate-200">
-                                            {kbTestResponse}
-                                        </div>
-                                    )}
-                                </div>
-
-                                <button onClick={resetFlow} className="rounded-lg bg-cyan-400 px-4 py-2 text-slate-900">
-                                    Onboard Another
-                                </button>
-                            </section>
-                        )}
-                    </div>
-
-                    {step < 5 && step !== 4 && (
-                        <div className="mt-8 flex items-center justify-between border-t border-white/10 pt-4">
-                            <button
-                                type="button"
-                                onClick={previousStep}
-                                disabled={step === 0 || isSubmitting}
-                                className="rounded-lg border border-white/20 px-4 py-2 text-sm disabled:opacity-40"
-                            >
-                                Previous
-                            </button>
-                            <button
-                                type="button"
-                                onClick={nextStep}
-                                disabled={isSubmitting}
-                                className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-medium text-slate-900 disabled:opacity-60"
-                            >
-                                Continue
-                            </button>
-                        </div>
-                    )}
-
-                    {step === 4 && (
-                        <div className="mt-8 flex items-center justify-start border-t border-white/10 pt-4">
-                            <button
-                                type="button"
-                                onClick={previousStep}
-                                disabled={isPaying}
-                                className="rounded-lg border border-white/20 px-4 py-2 text-sm disabled:opacity-40"
-                            >
-                                Previous
-                            </button>
-                        </div>
-                    )}
-                </motion.div>
-            </div>
-        </main>
-    );
-}
-
-// Dynamically load Cashfree JS SDK
 function loadCashfreeSDK(): Promise<any> {
     return new Promise((resolve, reject) => {
         if ((window as any).Cashfree) {
@@ -702,26 +99,435 @@ function loadCashfreeSDK(): Promise<any> {
     });
 }
 
+export default function OnboardingPage() {
+    const router = useRouter();
+    const [authChecked, setAuthChecked] = useState(false);
+    const [step, setStep] = useState(0);
+    const [tier, setTier] = useState<Tier | null>(null);
+    const [businessId, setBusinessId] = useState("");
+    const [isSaving, setIsSaving] = useState(false);
+    const [isPaying, setIsPaying] = useState(false);
+    const [error, setError] = useState("");
+
+    const [business, setBusiness] = useState<BusinessDetails>({
+        businessName: "",
+        category: "doctor",
+        city: "",
+        phone: "",
+        timezone: "Asia/Kolkata",
+        systemPrompt: "",
+    });
+
+    const selectedTier = useMemo(() => tiers.find((item) => item.id === tier) || null, [tier]);
+
+    useEffect(() => {
+        fetch("/api/auth/me")
+            .then((res) => {
+                if (!res.ok) {
+                    window.location.href = "/auth/login?redirect=/onboarding";
+                    return;
+                }
+                setAuthChecked(true);
+            })
+            .catch(() => {
+                window.location.href = "/auth/login?redirect=/onboarding";
+            });
+    }, []);
+
+    function validateCurrentStep() {
+        if (step === 0) {
+            if (!business.businessName.trim()) return "Business name is required.";
+            if (!business.city.trim()) return "City is required.";
+            if (!business.phone.trim()) return "Phone number is required.";
+        }
+
+        if (step === 1 && !tier) {
+            return "Please choose a tier.";
+        }
+
+        return "";
+    }
+
+    async function saveOnboardingDetails() {
+        if (!tier) return null;
+
+        setIsSaving(true);
+        setError("");
+
+        try {
+            const response = await fetch("/api/onboarding", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ business, tier }),
+            });
+
+            const data =
+                (await parseJsonSafe<{ error?: string; businessId?: string }>(response)) || {};
+
+            if (!response.ok || !data.businessId) {
+                throw new Error(data.error || "Failed to save onboarding details.");
+            }
+
+            setBusinessId(data.businessId);
+            return data.businessId;
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "Failed to save onboarding details.");
+            return null;
+        } finally {
+            setIsSaving(false);
+        }
+    }
+
+    async function handlePayment() {
+        if (!tier) return;
+
+        setIsPaying(true);
+        setError("");
+
+        try {
+            let activeBusinessId = businessId;
+            if (!activeBusinessId) {
+                const savedId = await saveOnboardingDetails();
+                if (!savedId) {
+                    setIsPaying(false);
+                    return;
+                }
+                activeBusinessId = savedId;
+            }
+
+            const checkoutRes = await fetch("/api/billing/checkout", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ businessId: activeBusinessId, tier }),
+            });
+
+            const checkoutData =
+                (await parseJsonSafe<{ error?: string; paymentSessionId?: string; orderId?: string }>(
+                    checkoutRes,
+                )) || {};
+
+            if (checkoutRes.status === 401) {
+                window.location.href = "/auth/login?redirect=/onboarding";
+                return;
+            }
+
+            if (!checkoutRes.ok || !checkoutData.paymentSessionId || !checkoutData.orderId) {
+                throw new Error(checkoutData.error || "Failed to initiate payment.");
+            }
+
+            const cashfree = await loadCashfreeSDK();
+            const result = await cashfree.checkout({
+                paymentSessionId: checkoutData.paymentSessionId,
+                redirectTarget: "_modal",
+            });
+
+            if (result.error) {
+                throw new Error(result.error.message || "Payment was cancelled.");
+            }
+
+            const verifyRes = await fetch("/api/billing/verify", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ orderId: checkoutData.orderId }),
+            });
+
+            const verifyData =
+                (await parseJsonSafe<{ error?: string; status?: string }>(verifyRes)) || {};
+
+            if (!verifyRes.ok) {
+                throw new Error(verifyData.error || "Payment verification failed.");
+            }
+
+            if (verifyData.status !== "SUCCESS") {
+                throw new Error("Payment is not complete yet. Please try again in a moment.");
+            }
+
+            router.push("/dashboard?payment=success");
+        } catch (e) {
+            setError(e instanceof Error ? e.message : "Payment failed.");
+        } finally {
+            setIsPaying(false);
+        }
+    }
+
+    function nextStep() {
+        const validationError = validateCurrentStep();
+        if (validationError) {
+            setError(validationError);
+            return;
+        }
+
+        setError("");
+        setStep((prev) => Math.min(prev + 1, steps.length - 1));
+    }
+
+    function previousStep() {
+        setError("");
+        setStep((prev) => Math.max(prev - 1, 0));
+    }
+
+    async function handleLogout() {
+        await fetch("/api/auth/logout", { method: "POST" });
+        window.location.href = "/";
+    }
+
+    if (!authChecked) {
+        return (
+            <main className="flex min-h-screen items-center justify-center bg-[#08121c] text-[#d6e7ff]">
+                <p>Loading your onboarding workspace...</p>
+            </main>
+        );
+    }
+
+    return (
+        <main className="min-h-screen bg-[#08121c] px-5 py-8 text-[#e9f2ff] sm:px-8">
+            <div className="mx-auto max-w-6xl">
+                <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
+                    <Link href="/" className="text-sm text-[#8db7ff] hover:text-[#bad3ff]">
+                        Back to home
+                    </Link>
+                    <div className="flex items-center gap-3">
+                        <p className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs">
+                            Step {step + 1} of {steps.length}
+                        </p>
+                        <button
+                            onClick={() => void handleLogout()}
+                            className="rounded-full border border-white/15 px-3 py-1 text-xs text-[#d4ddf5] hover:bg-white/10"
+                        >
+                            Sign out
+                        </button>
+                    </div>
+                </div>
+
+                <motion.section
+                    initial={{ opacity: 0, y: 14 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="overflow-hidden rounded-3xl border border-[#4c6f9f]/35 bg-[linear-gradient(140deg,#102033_0%,#0a1a2f_60%,#0f2746_100%)] shadow-[0_20px_120px_rgba(20,91,181,0.22)]"
+                >
+                    <div className="border-b border-white/10 px-6 py-6 sm:px-10">
+                        <p className="text-xs uppercase tracking-[0.22em] text-[#87d1ff]">Launch Setup</p>
+                        <h1 className="mt-2 text-3xl font-semibold sm:text-4xl">
+                            Basic onboarding, clear tier choice, instant payment
+                        </h1>
+                        <p className="mt-3 max-w-3xl text-sm text-[#b6cae8] sm:text-base">
+                            This flow captures only essential business details first. After payment success, you go
+                            directly to your dashboard where we will enable advanced setup like PDF upload,
+                            WhatsApp, and custom MCP tools based on your tier.
+                        </p>
+                    </div>
+
+                    <div className="grid gap-2 border-b border-white/10 bg-black/15 px-6 py-4 sm:grid-cols-3 sm:px-10">
+                        {steps.map((label, index) => (
+                            <div
+                                key={label}
+                                className={`rounded-xl px-3 py-2 text-sm ${index === step
+                                        ? "bg-[#8be4ff] text-[#0f1f3a]"
+                                        : index < step
+                                            ? "bg-[#2a7ca8]/40 text-[#d2efff]"
+                                            : "bg-white/5 text-[#9fbbdf]"
+                                    }`}
+                            >
+                                {index + 1}. {label}
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="px-6 py-7 sm:px-10 sm:py-10">
+                        {error && (
+                            <div className="mb-6 rounded-xl border border-rose-300/35 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                                {error}
+                            </div>
+                        )}
+
+                        {step === 0 && (
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <Field
+                                    label="Business Name"
+                                    value={business.businessName}
+                                    onChange={(value) => setBusiness((prev) => ({ ...prev, businessName: value }))}
+                                    placeholder="Ketan Barber Studio"
+                                />
+                                <Field
+                                    label="City"
+                                    value={business.city}
+                                    onChange={(value) => setBusiness((prev) => ({ ...prev, city: value }))}
+                                    placeholder="Ahmedabad"
+                                />
+                                <Field
+                                    label="Phone"
+                                    value={business.phone}
+                                    onChange={(value) => setBusiness((prev) => ({ ...prev, phone: value }))}
+                                    placeholder="+91 9876543210"
+                                />
+                                <label className="space-y-2">
+                                    <span className="text-sm text-[#bfd5f4]">Category</span>
+                                    <select
+                                        value={business.category}
+                                        onChange={(event) =>
+                                            setBusiness((prev) => ({
+                                                ...prev,
+                                                category: event.target.value as Category,
+                                            }))
+                                        }
+                                        className="w-full rounded-xl border border-white/20 bg-[#0e1f33] px-3 py-2 text-sm"
+                                    >
+                                        <option value="doctor">Doctor</option>
+                                        <option value="hotel">Hotel</option>
+                                        <option value="salon">Salon</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </label>
+                                <label className="space-y-2">
+                                    <span className="text-sm text-[#bfd5f4]">Timezone</span>
+                                    <input
+                                        value={business.timezone}
+                                        onChange={(event) =>
+                                            setBusiness((prev) => ({ ...prev, timezone: event.target.value }))
+                                        }
+                                        className="w-full rounded-xl border border-white/20 bg-[#0e1f33] px-3 py-2 text-sm"
+                                    />
+                                </label>
+                                <label className="md:col-span-2 space-y-2">
+                                    <span className="text-sm text-[#bfd5f4]">Assistant tone (optional)</span>
+                                    <textarea
+                                        value={business.systemPrompt}
+                                        onChange={(event) =>
+                                            setBusiness((prev) => ({ ...prev, systemPrompt: event.target.value }))
+                                        }
+                                        placeholder="Friendly, concise, and always mention estimated wait time."
+                                        className="h-24 w-full rounded-xl border border-white/20 bg-[#0e1f33] px-3 py-2 text-sm"
+                                    />
+                                </label>
+                            </div>
+                        )}
+
+                        {step === 1 && (
+                            <div className="grid gap-4 lg:grid-cols-2">
+                                {tiers.map((plan) => (
+                                    <button
+                                        key={plan.id}
+                                        type="button"
+                                        onClick={() => setTier(plan.id)}
+                                        className={`rounded-2xl border p-5 text-left transition ${tier === plan.id
+                                                ? "border-[#89ecff] bg-[#102c46] shadow-[0_0_0_1px_rgba(139,236,255,0.35)]"
+                                                : "border-white/15 bg-white/[0.03] hover:border-[#76bee9]/50"
+                                            }`}
+                                    >
+                                        <div className="flex items-start justify-between gap-3">
+                                            <div>
+                                                <p className="text-xs uppercase tracking-[0.15em] text-[#8cd9ff]">Tier {plan.id}</p>
+                                                <p className="mt-1 text-2xl font-semibold">{plan.name}</p>
+                                            </div>
+                                            <p className="rounded-full border border-cyan-200/30 bg-cyan-300/10 px-3 py-1 text-sm font-medium text-cyan-100">
+                                                {plan.price}
+                                            </p>
+                                        </div>
+                                        <p className="mt-3 text-sm text-[#c5d7ef]">{plan.pitch}</p>
+                                        <ul className="mt-3 space-y-1 text-sm text-[#9ec0e6]">
+                                            {plan.benefits.map((item) => (
+                                                <li key={item}>- {item}</li>
+                                            ))}
+                                        </ul>
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {step === 2 && selectedTier && (
+                            <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+                                <div className="rounded-2xl border border-white/15 bg-white/[0.04] p-5">
+                                    <p className="text-xs uppercase tracking-[0.15em] text-[#8ed8ff]">Final check</p>
+                                    <h2 className="mt-2 text-2xl font-semibold">Proceed to secure payment</h2>
+                                    <div className="mt-5 space-y-2 text-sm text-[#d0e1f7]">
+                                        <SummaryRow label="Business" value={business.businessName} />
+                                        <SummaryRow label="Category" value={business.category} />
+                                        <SummaryRow label="City" value={business.city} />
+                                        <SummaryRow label="Phone" value={business.phone} />
+                                        <SummaryRow label="Selected Tier" value={`Tier ${selectedTier.id} - ${selectedTier.name}`} />
+                                    </div>
+                                </div>
+
+                                <div className="rounded-2xl border border-[#8fe6ff]/35 bg-[linear-gradient(160deg,#12304a_0%,#0b2138_100%)] p-5">
+                                    <p className="text-sm text-[#9ee7ff]">Amount</p>
+                                    <p className="mt-1 text-4xl font-semibold">Rs {selectedTier.amount}</p>
+                                    <p className="mt-2 text-sm text-[#bfd9f4]">{selectedTier.price}</p>
+                                    <button
+                                        type="button"
+                                        onClick={() => void handlePayment()}
+                                        disabled={isSaving || isPaying}
+                                        className="mt-6 w-full rounded-xl bg-[#8bedff] px-4 py-3 text-sm font-semibold text-[#08213a] transition hover:bg-[#a4f1ff] disabled:opacity-60"
+                                    >
+                                        {isPaying ? "Processing payment..." : isSaving ? "Saving details..." : "Pay with Cashfree"}
+                                    </button>
+                                    <p className="mt-3 text-xs text-[#a8c1de]">After successful payment, you will be redirected to dashboard.</p>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="mt-8 flex items-center justify-between border-t border-white/10 pt-5">
+                            <button
+                                type="button"
+                                onClick={previousStep}
+                                disabled={step === 0 || isPaying || isSaving}
+                                className="rounded-full border border-white/20 px-5 py-2 text-sm text-[#dbe8fb] disabled:opacity-40"
+                            >
+                                Previous
+                            </button>
+
+                            {step < steps.length - 1 ? (
+                                <button
+                                    type="button"
+                                    onClick={nextStep}
+                                    disabled={isPaying || isSaving}
+                                    className="rounded-full bg-[#8be4ff] px-6 py-2 text-sm font-semibold text-[#08203a] disabled:opacity-60"
+                                >
+                                    Continue
+                                </button>
+                            ) : (
+                                <Link
+                                    href="/dashboard"
+                                    className="rounded-full border border-white/20 px-6 py-2 text-sm text-[#d6e6ff] hover:bg-white/10"
+                                >
+                                    Open dashboard
+                                </Link>
+                            )}
+                        </div>
+                    </div>
+                </motion.section>
+            </div>
+        </main>
+    );
+}
+
 function Field({
     label,
     value,
     onChange,
-    type = "text",
+    placeholder,
 }: {
     label: string;
     value: string;
     onChange: (value: string) => void;
-    type?: string;
+    placeholder?: string;
 }) {
     return (
         <label className="space-y-2">
-            <span className="text-sm text-slate-300">{label}</span>
+            <span className="text-sm text-[#bfd5f4]">{label}</span>
             <input
-                type={type}
                 value={value}
                 onChange={(event) => onChange(event.target.value)}
-                className="w-full rounded-lg border border-white/15 bg-slate-900 px-3 py-2"
+                placeholder={placeholder}
+                className="w-full rounded-xl border border-white/20 bg-[#0e1f33] px-3 py-2 text-sm"
             />
         </label>
+    );
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+    return (
+        <div className="flex items-center justify-between rounded-lg border border-white/10 bg-[#0b1d31] px-3 py-2">
+            <span className="text-[#9fbde1]">{label}</span>
+            <span className="font-medium text-[#ecf5ff]">{value}</span>
+        </div>
     );
 }

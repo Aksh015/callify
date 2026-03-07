@@ -72,7 +72,7 @@ export async function POST(request: Request) {
       utterance: speechResult,
       languageCode,
       context: {
-        customContextText: getDemoContextText(),
+        customContextText: await getDemoContextText(),
       },
     });
 

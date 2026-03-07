@@ -7,9 +7,9 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const stats = [
-  { label: "Average Setup Time", value: "8 min" },
-  { label: "Supported Categories", value: "Doctor, Hotel" },
-  { label: "Languages", value: "Regional + English" },
+  { label: "Average Setup Time", value: "4 min" },
+  { label: "Onboarding Steps", value: "3 only" },
+  { label: "Payment to Dashboard", value: "Instant" },
 ];
 
 const features = [
@@ -87,7 +87,7 @@ export default function Home() {
 
       <header className="sticky top-0 z-20 border-b border-white/10 bg-slate-950/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <p className="text-lg font-semibold tracking-tight">VoiceDesk</p>
+          <p className="text-lg font-semibold tracking-tight">VoiceDesk Cloud</p>
           <div className="flex items-center gap-2 sm:gap-4">
             <Link href="/demo" className="text-sm text-slate-300 transition hover:text-white">
               Try Demo
@@ -99,7 +99,7 @@ export default function Home() {
               <>
                 <span className="text-sm text-slate-400">{user.email}</span>
                 <Link
-                  href="/onboarding"
+                  href="/dashboard"
                   className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-cyan-300"
                 >
                   Dashboard
@@ -165,7 +165,7 @@ export default function Home() {
             className="mt-5 max-w-2xl text-base text-slate-300 sm:text-lg"
           >
             Launch onboarding in minutes: capture business details, upload knowledge base,
-            choose a tier, and instantly provision a dedicated customer-care number.
+            choose a tier, and complete payment. You are redirected directly to dashboard for next-phase setup.
           </motion.p>
 
           <motion.div
@@ -178,7 +178,7 @@ export default function Home() {
               href="/onboarding"
               className="rounded-xl bg-cyan-400 px-6 py-3 font-medium text-slate-950 transition hover:-translate-y-0.5 hover:bg-cyan-300"
             >
-              Start Onboarding
+              Start 3-Step Onboarding
             </Link>
             <Link
               href="/demo"
@@ -206,9 +206,9 @@ export default function Home() {
             <InfoRow label="Business" value="Sunrise Hotel" />
             <InfoRow label="Category" value="Hotel" />
             <InfoRow label="Tier" value="Tier 3 • Ops" />
-            <InfoRow label="KB Files" value="4 uploaded" />
-            <InfoRow label="Provisioned Number" value="+91 94321 67410" />
-            <InfoRow label="Dashboard" value="sunrise-hotel.mydomain.in" />
+            <InfoRow label="Step 1" value="Basic Business Details" />
+            <InfoRow label="Step 2" value="Tier Selection" />
+            <InfoRow label="Step 3" value="Payment -> Dashboard" />
           </div>
         </motion.div>
       </section>
@@ -232,8 +232,8 @@ export default function Home() {
       <section className="mx-auto max-w-6xl px-6 py-14">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-semibold">Why VoiceDesk feels enterprise-ready</h2>
-            <p className="mt-2 text-slate-400">Built for clean onboarding, strong automation, and scalable operations.</p>
+            <h2 className="text-3xl font-semibold">Built for conversion-first onboarding</h2>
+            <p className="mt-2 text-slate-400">Get customers to paid state quickly, then expand capabilities inside dashboard.</p>
           </div>
         </div>
         <div className="grid gap-5 md:grid-cols-3">
