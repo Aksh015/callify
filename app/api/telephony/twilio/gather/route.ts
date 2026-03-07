@@ -5,7 +5,13 @@ import {
   isDemoTwilioSignatureValid,
   isInboundToDemoNumber,
 } from "@/lib/telephony/twilioDemoValidation";
+import {
+  getNormalizedInboundNumber,
+  isAllowedProdTwilioSource,
+  isProdTwilioSignatureValid,
+} from "@/lib/telephony/twilioProdValidation";
 import { playAudioOrSayTwiml, twimlResponse } from "@/lib/telephony/twiml";
+import { loadRuntimeContextFromInboundNumber } from "@/lib/runtime/businessContext";
 
 export const runtime = "nodejs";
 
@@ -60,6 +66,16 @@ export async function POST(request: Request) {
       return new Response("Invalid Twilio signature", { status: 403 });
     }
 
+    if (!isDemoInbound) {
+      if (!isAllowedProdTwilioSource(form)) {
+        return new Response("Invalid production Twilio source", { status: 403 });
+      }
+
+      if (!isProdTwilioSignatureValid(request, form)) {
+        return new Response("Invalid Twilio signature", { status: 403 });
+      }
+    }
+
     if (!speechResult) {
       console.log(
         JSON.stringify({
@@ -83,7 +99,10 @@ export async function POST(request: Request) {
       ? {
           customContextText: await getDemoContextText(),
         }
-      : getDefaultRuntimeContext();
+      : {
+          ...getDefaultRuntimeContext(),
+          ...(await loadRuntimeContextFromInboundNumber(getNormalizedInboundNumber(form))),
+        };
     const runtimeResult = await runRuntimeTurn({
       utterance: speechResult,
       languageCode,

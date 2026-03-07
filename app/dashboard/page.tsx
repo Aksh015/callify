@@ -67,6 +67,35 @@ export default async function DashboardPage() {
     .eq("fact_key", "custom_mcp_tools")
     .maybeSingle();
 
+  const { data: existingAllocation } = await admin
+    .from("telephony_allocations")
+    .select("phone_number")
+    .eq("business_profile_id", profile.id)
+    .maybeSingle<{ phone_number: string }>();
+
+  const productionPhone =
+    process.env.TWILIO_PROD_PHONE_NUMBER || process.env.TWILIO_PHONE_NUMBER || "";
+  const productionAccountLabel =
+    process.env.TWILIO_PROD_ACCOUNT_LABEL ||
+    process.env.TWILIO_PROD_ACCOUNT_SID ||
+    process.env.TWILIO_ACCOUNT_SID ||
+    "primary";
+
+  // One-user deployment mode: auto-bind production number to this active business.
+  if (!existingAllocation?.phone_number && productionPhone) {
+    await admin.from("telephony_allocations").upsert(
+      {
+        business_profile_id: profile.id,
+        phone_number: productionPhone,
+        twilio_account_label: productionAccountLabel,
+        status: "assigned",
+      },
+      { onConflict: "business_profile_id" },
+    );
+  }
+
+  const assignedPhoneNumber = existingAllocation?.phone_number || productionPhone || "Not assigned";
+
   const customTools = Array.isArray(customToolsFact?.fact_value?.tools)
     ? customToolsFact?.fact_value?.tools
     : [];
@@ -123,6 +152,7 @@ export default async function DashboardPage() {
               <li>- Documents uploaded: {(docs || []).length}</li>
               <li>- WhatsApp enabled: {flags?.whatsapp_enabled ? "Yes" : "No"}</li>
               <li>- Custom MCP tools: {customTools.length}</li>
+              <li>- Assigned production number: {assignedPhoneNumber}</li>
               <li>- Active tier gates: Tier {currentTier}</li>
             </ul>
           </div>

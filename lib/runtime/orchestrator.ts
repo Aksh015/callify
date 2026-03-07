@@ -81,7 +81,7 @@ function heuristicSlotExtraction(utterance: string, requiredSlots: string[]) {
 }
 
 export async function runRuntimeTurn(input: RuntimeTurnInput): Promise<RuntimeTurnOutput> {
-  const router = new MCPToolRouter();
+  const router = new MCPToolRouter(input.context?.customTools || []);
   const tools = router.getTools();
   const allowedIntents = tools.map((tool) => tool.name);
 

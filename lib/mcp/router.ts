@@ -1,6 +1,19 @@
 import { searchKnowledgeBase } from "@/lib/kb/retriever";
+import { searchBusinessKnowledge } from "@/lib/kb/dbRetriever";
+import { getAIProvider } from "@/lib/ai";
+
+export type RuntimeCustomTool = {
+  name: string;
+  description: string;
+  prompt: string;
+  requiredSlots?: string[];
+  missingSlotPrompts?: Record<string, string>;
+};
 
 export type RuntimeBusinessContext = {
+  businessProfileId?: string;
+  systemPrompt?: string;
+  customTools?: RuntimeCustomTool[];
   knowledgeBaseId?: string;
   customContextText?: string;
   businessInfo?: {
@@ -96,12 +109,25 @@ export const DEFAULT_TOOLS: MCPToolDefinition[] = [
 ];
 
 export class MCPToolRouter {
+  constructor(private readonly customTools: RuntimeCustomTool[] = []) {}
+
+  private buildCustomToolDefinition(tool: RuntimeCustomTool): MCPToolDefinition {
+    const normalizedName = `custom_${tool.name.toLowerCase().replace(/[^a-z0-9_]+/g, "_")}`;
+    return {
+      name: normalizedName,
+      description: tool.description || `Custom tool: ${tool.name}`,
+      requiredSlots: Array.isArray(tool.requiredSlots) ? tool.requiredSlots : [],
+      missingSlotPrompts: tool.missingSlotPrompts || {},
+    };
+  }
+
   getTools() {
-    return DEFAULT_TOOLS;
+    const customDefs = this.customTools.map((tool) => this.buildCustomToolDefinition(tool));
+    return [...DEFAULT_TOOLS, ...customDefs];
   }
 
   getToolByName(name: string) {
-    return DEFAULT_TOOLS.find((tool) => tool.name === name);
+    return this.getTools().find((tool) => tool.name === name);
   }
 
   async execute(
@@ -125,6 +151,23 @@ export class MCPToolRouter {
 
     switch (action) {
       case "search_knowledge": {
+        if (context.businessProfileId) {
+          const result = await searchBusinessKnowledge({
+            businessProfileId: context.businessProfileId,
+            query: slots.query,
+          });
+
+          return {
+            ok: result.found,
+            action,
+            message: result.answer,
+            data: {
+              matches: result.matches,
+              source: "supabase_kb_chunks",
+            },
+          };
+        }
+
         if (!context.knowledgeBaseId) {
           return {
             ok: false,
@@ -259,6 +302,44 @@ export class MCPToolRouter {
       }
 
       default:
+        if (action.startsWith("custom_")) {
+          const matched = this.customTools.find(
+            (tool) => this.buildCustomToolDefinition(tool).name === action,
+          );
+
+          if (!matched) {
+            return {
+              ok: false,
+              action,
+              message: `Unknown custom MCP action: ${action}`,
+            };
+          }
+
+          const ai = getAIProvider();
+          const prompt = [
+            `You are executing custom MCP tool: ${matched.name}`,
+            `Tool instruction: ${matched.prompt}`,
+            `Business name: ${context.businessInfo?.name || "Unknown"}`,
+            `Customer request: ${slots.query || ""}`,
+            `Extracted slots JSON: ${JSON.stringify(slots)}`,
+            "Return a concise user-facing response only.",
+          ].join("\n");
+
+          const generated = await ai.generateText({
+            system: context.systemPrompt,
+            prompt,
+          });
+
+          return {
+            ok: true,
+            action,
+            message: generated || `Executed custom MCP tool ${matched.name}.`,
+            data: {
+              customTool: matched.name,
+            },
+          };
+        }
+
         return {
           ok: false,
           action,

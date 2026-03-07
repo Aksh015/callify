@@ -1,5 +1,6 @@
 import { gatherSpeechTwiml, twimlResponse } from "@/lib/telephony/twiml";
 import { isInboundToDemoNumber } from "@/lib/telephony/twilioDemoValidation";
+import { isAllowedProdTwilioSource, isProdTwilioSignatureValid } from "@/lib/telephony/twilioProdValidation";
 
 export const runtime = "nodejs";
 
@@ -21,9 +22,20 @@ function buildVoiceResponse() {
 }
 
 export async function POST(request: Request) {
+  let isDemoInbound = false;
   try {
     const form = await request.formData();
-    const isDemoInbound = isInboundToDemoNumber(form);
+    isDemoInbound = isInboundToDemoNumber(form);
+
+    if (!isDemoInbound) {
+      if (!isAllowedProdTwilioSource(form)) {
+        return new Response("Invalid production Twilio source", { status: 403 });
+      }
+
+      if (!isProdTwilioSignatureValid(request, form)) {
+        return new Response("Invalid Twilio signature", { status: 403 });
+      }
+    }
 
     const payloadEntries = Object.fromEntries(form.entries());
     const baseUrl = process.env.APP_BASE_URL || "http://localhost:3000";
