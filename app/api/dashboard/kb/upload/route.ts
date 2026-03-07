@@ -1,5 +1,4 @@
 import path from "node:path";
-import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
@@ -40,6 +39,23 @@ async function getActiveTier(admin: ReturnType<typeof getSupabaseAdmin>, userId:
     .maybeSingle<TierRecord>();
 
   return data?.tier || 0;
+}
+
+async function ensureKbBucket(admin: ReturnType<typeof getSupabaseAdmin>) {
+  const storage = admin.storage;
+  const { data: existing, error: getBucketError } = await storage.getBucket("kb-files");
+
+  if (!getBucketError && existing?.id) {
+    return;
+  }
+
+  const { error: createError } = await storage.createBucket("kb-files", {
+    public: false,
+  });
+
+  if (createError && !String(createError.message || "").toLowerCase().includes("already exists")) {
+    throw new Error(`Storage bucket setup failed: ${createError.message}`);
+  }
 }
 
 export async function POST(request: Request) {
@@ -92,13 +108,35 @@ export async function POST(request: Request) {
     const safeFileName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
     const storagePath = `${user.id}/${profile.id}/${Date.now()}-${safeFileName}`;
 
-    const { error: storageError } = await admin.storage.from("kb-files").upload(storagePath, file, {
-      contentType: file.type || "application/pdf",
-      upsert: false,
-    });
+    await ensureKbBucket(admin);
 
-    if (storageError) {
-      return NextResponse.json({ error: `Storage upload failed: ${storageError.message}` }, { status: 500 });
+    let storageErrorMessage = "";
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      const { error: storageError } = await admin.storage.from("kb-files").upload(storagePath, file, {
+        contentType: file.type || "application/pdf",
+        upsert: false,
+      });
+
+      if (!storageError) {
+        storageErrorMessage = "";
+        break;
+      }
+
+      storageErrorMessage = storageError.message;
+
+      // One-time self-heal for fresh projects where bucket metadata is missing.
+      if (attempt === 1 && /bucket|not found|does not exist/i.test(storageError.message || "")) {
+        await ensureKbBucket(admin);
+      }
+    }
+
+    if (storageErrorMessage) {
+      return NextResponse.json(
+        {
+          error: `Storage upload failed: ${storageErrorMessage}. Ensure Supabase bucket 'kb-files' exists in this project.`,
+        },
+        { status: 500 },
+      );
     }
 
     const { data: insertedDoc, error: docError } = await admin
@@ -120,9 +158,20 @@ export async function POST(request: Request) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const pdfParse = (await import("pdf-parse")).default;
-    const parsed = await pdfParse(buffer);
-    const chunks = chunkText(parsed.text || "");
+    let chunks: string[] = [];
+
+    try {
+      const pdfParse = (await import("pdf-parse")).default;
+      const parsed = await pdfParse(buffer);
+      chunks = chunkText(parsed.text || "");
+    } catch (parseError) {
+      await admin.from("kb_documents").update({ status: "failed" }).eq("id", insertedDoc.id);
+      const message =
+        parseError instanceof Error
+          ? parseError.message
+          : "PDF parsing failed. Try another PDF or a smaller non-scanned file.";
+      return NextResponse.json({ error: `PDF parsing failed: ${message}` }, { status: 500 });
+    }
 
     if (chunks.length > 0) {
       const chunkRows = chunks.map((content, index) => ({
