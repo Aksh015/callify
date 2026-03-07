@@ -16,6 +16,7 @@ export type RuntimeTurnOutput = {
   requiresInput: boolean;
   missingSlot?: string;
   prompt?: string;
+  needsConfirmation?: boolean;
   responseText: string;
   mcp: {
     ok: boolean;
@@ -82,7 +83,12 @@ function heuristicSlotExtraction(utterance: string, requiredSlots: string[]) {
 
 export async function runRuntimeTurn(input: RuntimeTurnInput): Promise<RuntimeTurnOutput> {
   const router = new MCPToolRouter(input.context?.customTools || []);
-  const tools = router.getTools();
+  const allowedFromContext = new Set((input.context?.allowedToolNames || []).filter(Boolean));
+  const allTools = router.getTools();
+  const tools =
+    allowedFromContext.size > 0
+      ? allTools.filter((tool) => allowedFromContext.has(tool.name))
+      : allTools;
   const allowedIntents = tools.map((tool) => tool.name);
 
   const ai = getAIProvider();
@@ -134,7 +140,12 @@ export async function runRuntimeTurn(input: RuntimeTurnInput): Promise<RuntimeTu
   }
 
   // Avoid confusing "knowledge base is not configured" responses for general business queries.
-  if (intent === "search_knowledge" && !input.context?.knowledgeBaseId) {
+  if (
+    intent === "search_knowledge" &&
+    !input.context?.knowledgeBaseId &&
+    !input.context?.businessProfileId &&
+    !input.context?.customContextText
+  ) {
     intent = "get_business_info";
   }
 
@@ -197,7 +208,12 @@ export async function runRuntimeTurn(input: RuntimeTurnInput): Promise<RuntimeTu
   }
 
   // Avoid confusing "knowledge base is not configured" responses for general business queries.
-  if (intent === "search_knowledge" && !input.context?.knowledgeBaseId) {
+  if (
+    intent === "search_knowledge" &&
+    !input.context?.knowledgeBaseId &&
+    !input.context?.businessProfileId &&
+    !input.context?.customContextText
+  ) {
     intent = "get_business_info";
   }
 
@@ -219,6 +235,31 @@ export async function runRuntimeTurn(input: RuntimeTurnInput): Promise<RuntimeTu
       mcp: {
         ok: false,
         message: "Waiting for missing slot input.",
+      },
+    };
+  }
+
+  const confirmActions = new Set((input.context?.confirmActions || []).filter(Boolean));
+  if (confirmActions.has(tool.name)) {
+    const summary = Object.entries(slots)
+      .map(([key, value]) => `${key.replace(/_/g, " ")}: ${value}`)
+      .join(", ");
+    const confirmationPrompt = summary
+      ? `Please confirm. Should I proceed with ${tool.name.replace(/_/g, " ")} using ${summary}?`
+      : `Please confirm. Should I proceed with ${tool.name.replace(/_/g, " ")}?`;
+
+    return {
+      intent,
+      confidence,
+      action: tool.name,
+      slots,
+      requiresInput: true,
+      needsConfirmation: true,
+      prompt: confirmationPrompt,
+      responseText: confirmationPrompt,
+      mcp: {
+        ok: false,
+        message: "Waiting for confirmation.",
       },
     };
   }

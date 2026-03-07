@@ -1,4 +1,4 @@
-import { gatherSpeechTwiml, twimlResponse } from "@/lib/telephony/twiml";
+import { gatherSpeechTwiml, recordSpeechTwiml, twimlResponse } from "@/lib/telephony/twiml";
 import { isInboundToDemoNumber } from "@/lib/telephony/twilioDemoValidation";
 import { isAllowedProdTwilioSource, isProdTwilioSignatureValid } from "@/lib/telephony/twilioProdValidation";
 
@@ -11,13 +11,21 @@ function buildVoiceResponse() {
   const welcomePrompt =
     process.env.TELEPHONY_WELCOME_PROMPT ||
     "Welcome to Callify AI support. Please tell me your question.";
+  const useSarvamStt = process.env.TELEPHONY_USE_SARVAM_STT === "true" && Boolean(process.env.SARVAM_API_KEY);
 
   return twimlResponse(
-    gatherSpeechTwiml({
-      actionUrl,
-      prompt: welcomePrompt,
-      languageCode,
-    }),
+    useSarvamStt
+      ? recordSpeechTwiml({
+          actionUrl,
+          prompt: welcomePrompt,
+          languageCode,
+          maxLengthSeconds: Number(process.env.TELEPHONY_RECORD_MAX_SECONDS || 20),
+        })
+      : gatherSpeechTwiml({
+          actionUrl,
+          prompt: welcomePrompt,
+          languageCode,
+        }),
   );
 }
 

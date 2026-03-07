@@ -16,6 +16,11 @@ type ProfileRow = {
   system_prompt: string | null;
 };
 
+type FlagRow = {
+  book_appointment_enabled: boolean;
+  whatsapp_enabled: boolean;
+};
+
 export async function loadRuntimeContextFromInboundNumber(toNumber: string): Promise<RuntimeBusinessContext> {
   const normalized = normalizePhone(toNumber || "");
   const admin = getSupabaseAdmin();
@@ -86,6 +91,32 @@ export async function loadRuntimeContextFromInboundNumber(toNumber: string): Pro
     .eq("fact_key", "custom_mcp_tools")
     .maybeSingle<{ fact_value: { tools?: RuntimeCustomTool[] } }>();
 
+  const { data: flags } = await admin
+    .from("feature_flags")
+    .select("book_appointment_enabled, whatsapp_enabled")
+    .eq("business_profile_id", businessProfileId)
+    .maybeSingle<FlagRow>();
+
+  const { data: latestPayment } = await admin
+    .from("payments")
+    .select("tier")
+    .eq("business_profile_id", businessProfileId)
+    .eq("status", "SUCCESS")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ tier: number }>();
+
+  const tier = latestPayment?.tier || 1;
+  const allowedToolNames = ["search_knowledge", "get_business_info", "get_opening_hours", "check_available_slots", "get_order_status"];
+
+  if (flags?.book_appointment_enabled || tier >= 2) {
+    allowedToolNames.push("book_appointment");
+  }
+
+  if (tier >= 2 && flags?.whatsapp_enabled) {
+    allowedToolNames.push("send_whatsapp", "send_email");
+  }
+
   const customTools = Array.isArray(customToolsFact?.fact_value?.tools)
     ? customToolsFact?.fact_value?.tools
         .map((tool) => ({
@@ -100,9 +131,18 @@ export async function loadRuntimeContextFromInboundNumber(toNumber: string): Pro
         .filter((tool) => tool.name && tool.prompt)
     : [];
 
+  if (tier >= 4) {
+    for (const tool of customTools) {
+      const normalizedName = `custom_${tool.name.toLowerCase().replace(/[^a-z0-9_]+/g, "_")}`;
+      allowedToolNames.push(normalizedName);
+    }
+  }
+
   return {
     businessProfileId,
     systemPrompt: profile?.system_prompt || undefined,
+    allowedToolNames,
+    confirmActions: ["book_appointment"],
     businessInfo: {
       name: profile?.business_name || "",
       address: [profile?.city, profile?.category].filter(Boolean).join(" • "),

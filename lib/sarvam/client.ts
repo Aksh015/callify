@@ -16,6 +16,20 @@ export type SarvamTtsOutput = {
   raw?: unknown;
 };
 
+export type SarvamSttInput = {
+  audioBase64?: string;
+  audioUrl?: string;
+  languageCode?: string;
+  format?: "wav" | "mp3";
+};
+
+export type SarvamSttOutput = {
+  provider: "sarvam";
+  model: string;
+  transcript: string;
+  raw?: unknown;
+};
+
 function toBase64(arrayBuffer: ArrayBuffer) {
   return Buffer.from(arrayBuffer).toString("base64");
 }
@@ -25,6 +39,8 @@ export class SarvamClient {
   private readonly baseUrl = process.env.SARVAM_API_BASE_URL || "https://api.sarvam.ai";
   private readonly ttsEndpoint = process.env.SARVAM_TTS_ENDPOINT || "/text-to-speech";
   private readonly ttsModel = process.env.SARVAM_TTS_MODEL || "bulbul:v3";
+  private readonly sttEndpoint = process.env.SARVAM_STT_ENDPOINT || "/speech-to-text";
+  private readonly sttModel = process.env.SARVAM_STT_MODEL || "saarika:v2";
   private readonly defaultSpeaker = (process.env.SARVAM_TTS_SPEAKER || "shubh").toLowerCase();
 
   isConfigured() {
@@ -112,6 +128,61 @@ export class SarvamClient {
       model: this.ttsModel,
       audioBase64: toBase64(audioBuffer),
       contentType,
+    };
+  }
+
+  async transcribe(input: SarvamSttInput): Promise<SarvamSttOutput> {
+    if (!this.apiKey) {
+      throw new Error("SARVAM_API_KEY is not configured.");
+    }
+
+    if (!input.audioBase64 && !input.audioUrl) {
+      throw new Error("audioBase64 or audioUrl is required for STT.");
+    }
+
+    const response = await fetch(`${this.baseUrl}${this.sttEndpoint}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "api-subscription-key": this.apiKey,
+        Authorization: `Bearer ${this.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.sttModel,
+        language_code: input.languageCode || "en-IN",
+        format: input.format || "wav",
+        audio: input.audioBase64,
+        audio_base64: input.audioBase64,
+        audio_url: input.audioUrl,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
+      throw new Error(`Sarvam STT failed (${response.status}): ${errorText}`);
+    }
+
+    const json = (await response.json()) as {
+      transcript?: string;
+      text?: string;
+      output?: { transcript?: string; text?: string };
+      result?: { transcript?: string; text?: string };
+    };
+
+    const transcript =
+      json.transcript ||
+      json.text ||
+      json.output?.transcript ||
+      json.output?.text ||
+      json.result?.transcript ||
+      json.result?.text ||
+      "";
+
+    return {
+      provider: "sarvam",
+      model: this.sttModel,
+      transcript: String(transcript || "").trim(),
+      raw: json,
     };
   }
 }

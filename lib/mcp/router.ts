@@ -14,6 +14,8 @@ export type RuntimeBusinessContext = {
   businessProfileId?: string;
   systemPrompt?: string;
   customTools?: RuntimeCustomTool[];
+  allowedToolNames?: string[];
+  confirmActions?: string[];
   knowledgeBaseId?: string;
   customContextText?: string;
   businessInfo?: {
@@ -108,6 +110,63 @@ export const DEFAULT_TOOLS: MCPToolDefinition[] = [
   },
 ];
 
+function searchInCustomContext(customText: string, query: string) {
+  const text = customText.trim();
+  if (!text) {
+    return {
+      found: false,
+      answer: "I could not find this information in the demo context.",
+      matches: [],
+    };
+  }
+
+  const queryTokens = query
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .split(/\s+/)
+    .filter((token) => token.length > 1);
+
+  if (queryTokens.length === 0) {
+    return {
+      found: true,
+      answer: text.slice(0, 1200),
+      matches: [{ score: 1 }],
+    };
+  }
+
+  const sentences = text
+    .split(/[.!?\n]+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+
+  const scored = sentences
+    .map((sentence) => {
+      const lower = sentence.toLowerCase();
+      let score = 0;
+      for (const token of queryTokens) {
+        if (lower.includes(token)) score += 1;
+      }
+      return { sentence, score };
+    })
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 4);
+
+  if (scored.length === 0) {
+    return {
+      found: false,
+      answer: "I could not find this information in the demo context.",
+      matches: [],
+    };
+  }
+
+  return {
+    found: true,
+    answer: scored.map((item) => item.sentence).join(" ").slice(0, 1200),
+    matches: scored.map((item) => ({ score: item.score })),
+  };
+}
+
 export class MCPToolRouter {
   constructor(private readonly customTools: RuntimeCustomTool[] = []) {}
 
@@ -135,22 +194,22 @@ export class MCPToolRouter {
     slots: Record<string, string>,
     context: RuntimeBusinessContext,
   ): Promise<MCPExecutionResult> {
-    const forcedContextText = context.customContextText?.trim();
-    if (forcedContextText) {
-      return {
-        ok: true,
-        action,
-        message: forcedContextText,
-        data: {
-          source: "custom_context_text",
-          bypassedAction: action,
-          slots,
-        },
-      };
-    }
-
     switch (action) {
       case "search_knowledge": {
+        const customContextText = context.customContextText?.trim();
+        if (customContextText) {
+          const result = searchInCustomContext(customContextText, slots.query || "");
+          return {
+            ok: result.found,
+            action,
+            message: result.answer,
+            data: {
+              matches: result.matches,
+              source: "demo_custom_context",
+            },
+          };
+        }
+
         if (context.businessProfileId) {
           const result = await searchBusinessKnowledge({
             businessProfileId: context.businessProfileId,
