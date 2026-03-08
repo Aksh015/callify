@@ -218,20 +218,20 @@ export default function DashboardClient({
     return (
         <section className="grid gap-6 lg:grid-cols-2">
             <div className="space-y-6">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="rounded-2xl border border-violet-500/15 bg-white/[0.02] p-5">
                     <h2 className="text-lg font-semibold">Knowledge Base PDF Upload</h2>
-                    <p className="mt-2 text-sm text-[#b8cdea]">Upload PDFs to teach your AI assistant business-specific answers.</p>
+                    <p className="mt-2 text-sm text-[#b8b0cc]">Upload PDFs to teach your AI assistant business-specific answers.</p>
                     <form className="mt-4 space-y-3" onSubmit={onUploadPdf}>
                         <input
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                             placeholder="Document title (optional)"
-                            className="w-full rounded-lg border border-white/20 bg-[#0d1e32] px-3 py-2 text-sm"
+                            className="w-full rounded-lg border border-violet-500/20 bg-[#0e0b16] px-3 py-2 text-sm"
                         />
                         <select
                             value={kind}
                             onChange={(e) => setKind(e.target.value as (typeof docKinds)[number])}
-                            className="w-full rounded-lg border border-white/20 bg-[#0d1e32] px-3 py-2 text-sm"
+                            className="w-full rounded-lg border border-violet-500/20 bg-[#0e0b16] px-3 py-2 text-sm"
                         >
                             {docKinds.map((item) => (
                                 <option key={item} value={item}>
@@ -243,29 +243,29 @@ export default function DashboardClient({
                             type="file"
                             accept="application/pdf"
                             onChange={(e) => setFile(e.target.files?.[0] || null)}
-                            className="w-full rounded-lg border border-white/20 bg-[#0d1e32] px-3 py-2 text-sm"
+                            className="w-full rounded-lg border border-violet-500/20 bg-[#0e0b16] px-3 py-2 text-sm"
                         />
                         <button
                             type="submit"
                             disabled={uploading}
-                            className="rounded-lg bg-[#8de8ff] px-4 py-2 text-sm font-semibold text-[#08203a] disabled:opacity-50"
+                            className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-[#07060b] disabled:opacity-50"
                         >
                             {uploading ? "Uploading..." : "Upload and Index PDF"}
                         </button>
                     </form>
-                    {uploadMessage ? <p className="mt-3 text-sm text-[#bfe7ff]">{uploadMessage}</p> : null}
+                    {uploadMessage ? <p className="mt-3 text-sm text-violet-300">{uploadMessage}</p> : null}
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="rounded-2xl border border-violet-500/15 bg-white/[0.02] p-5">
                     <h2 className="text-lg font-semibold">Uploaded Documents</h2>
                     <div className="mt-3 space-y-2">
                         {sortedDocs.length === 0 ? (
-                            <p className="text-sm text-[#9db8da]">No documents uploaded yet.</p>
+                            <p className="text-sm text-[#9b8fb5]">No documents uploaded yet.</p>
                         ) : (
                             sortedDocs.slice(0, 8).map((doc) => (
-                                <div key={doc.id} className="rounded-lg border border-white/10 bg-[#0b182a] px-3 py-2 text-sm">
+                                <div key={doc.id} className="rounded-lg border border-violet-500/10 bg-[#0e0b16] px-3 py-2 text-sm">
                                     <p className="font-medium">{doc.title || doc.file_name}</p>
-                                    <p className="text-[#95b2d5]">{doc.document_kind} • {doc.status}</p>
+                                    <p className="text-[#9b8fb5]">{doc.document_kind} • {doc.status}</p>
                                 </div>
                             ))
                         )}
@@ -274,12 +274,12 @@ export default function DashboardClient({
             </div>
 
             <div className="space-y-6">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="rounded-2xl border border-violet-500/15 bg-white/[0.02] p-5">
                     <h2 className="text-lg font-semibold">Monthly Booking Calendar</h2>
-                    <p className="mt-2 text-sm text-[#b8cdea]">
+                    <p className="mt-2 text-sm text-[#b8b0cc]">
                         {monthStart.toLocaleString(undefined, { month: "long", year: "numeric" })}
                     </p>
-                    <div className="mt-4 grid grid-cols-7 gap-2 text-xs text-[#9db8da]">
+                    <div className="mt-4 grid grid-cols-7 gap-2 text-xs text-[#9b8fb5]">
                         {Array.from({ length: monthDays }).map((_, index) => {
                             const day = index + 1;
                             const date = new Date(now.getFullYear(), now.getMonth(), day);
@@ -288,7 +288,7 @@ export default function DashboardClient({
                             return (
                                 <div
                                     key={isoDate}
-                                    className={`rounded-lg border px-2 py-2 ${bookedCount > 0 ? "border-cyan-300/50 bg-cyan-400/10 text-cyan-100" : "border-white/10 bg-[#0b182a]"}`}
+                                    className={`rounded-lg border px-2 py-2 ${bookedCount > 0 ? "border-amber-400/50 bg-amber-500/10 text-amber-100" : "border-violet-500/10 bg-[#0e0b16]"}`}
                                 >
                                     <p className="font-medium">{day}</p>
                                     <p>{bookedCount > 0 ? `${bookedCount} booked` : "free"}</p>
@@ -298,27 +298,27 @@ export default function DashboardClient({
                     </div>
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="rounded-2xl border border-violet-500/15 bg-white/[0.02] p-5">
                     <h2 className="text-lg font-semibold">Time Booking</h2>
                     <form className="mt-3 grid gap-3" onSubmit={onSaveSlot}>
                         <input
                             type="date"
                             value={slotDate}
                             onChange={(e) => setSlotDate(e.target.value)}
-                            className="w-full rounded-lg border border-white/20 bg-[#0d1e32] px-3 py-2 text-sm"
+                            className="w-full rounded-lg border border-violet-500/20 bg-[#0e0b16] px-3 py-2 text-sm"
                             required
                         />
                         <input
                             type="time"
                             value={slotTime}
                             onChange={(e) => setSlotTime(e.target.value)}
-                            className="w-full rounded-lg border border-white/20 bg-[#0d1e32] px-3 py-2 text-sm"
+                            className="w-full rounded-lg border border-violet-500/20 bg-[#0e0b16] px-3 py-2 text-sm"
                             required
                         />
                         <select
                             value={slotStatus}
                             onChange={(e) => setSlotStatus(e.target.value as "free" | "booked")}
-                            className="w-full rounded-lg border border-white/20 bg-[#0d1e32] px-3 py-2 text-sm"
+                            className="w-full rounded-lg border border-violet-500/20 bg-[#0e0b16] px-3 py-2 text-sm"
                         >
                             <option value="free">Free slot</option>
                             <option value="booked">Booked slot</option>
@@ -329,36 +329,36 @@ export default function DashboardClient({
                                     value={customerName}
                                     onChange={(e) => setCustomerName(e.target.value)}
                                     placeholder="Customer name"
-                                    className="w-full rounded-lg border border-white/20 bg-[#0d1e32] px-3 py-2 text-sm"
+                                    className="w-full rounded-lg border border-violet-500/20 bg-[#0e0b16] px-3 py-2 text-sm"
                                 />
                                 <input
                                     value={customerPhone}
                                     onChange={(e) => setCustomerPhone(e.target.value)}
                                     placeholder="Customer phone"
-                                    className="w-full rounded-lg border border-white/20 bg-[#0d1e32] px-3 py-2 text-sm"
+                                    className="w-full rounded-lg border border-violet-500/20 bg-[#0e0b16] px-3 py-2 text-sm"
                                 />
                             </>
                         ) : null}
                         <button
                             type="submit"
                             disabled={savingBooking}
-                            className="rounded-lg border border-white/20 px-4 py-2 text-sm disabled:opacity-50"
+                            className="rounded-lg border border-violet-400/30 bg-violet-500/10 px-4 py-2 text-sm text-violet-200 transition hover:bg-violet-500/20 disabled:opacity-50"
                         >
                             {savingBooking ? "Saving..." : "Save Time Slot"}
                         </button>
                     </form>
-                    {bookingMessage ? <p className="mt-2 text-sm text-[#bfe7ff]">{bookingMessage}</p> : null}
+                    {bookingMessage ? <p className="mt-2 text-sm text-violet-300">{bookingMessage}</p> : null}
                     <div className="mt-4 space-y-2">
                         <p className="text-sm font-medium">Recent Bookings</p>
                         {bookedSlots.length === 0 ? (
-                            <p className="text-sm text-[#9db8da]">No booked appointments yet.</p>
+                            <p className="text-sm text-[#9b8fb5]">No booked appointments yet.</p>
                         ) : (
                             bookedSlots.map((slot) => (
-                                <div key={slot.id} className="rounded-lg border border-white/10 bg-[#0b182a] px-3 py-2 text-sm">
+                                <div key={slot.id} className="rounded-lg border border-violet-500/10 bg-[#0e0b16] px-3 py-2 text-sm">
                                     <p className="font-medium">
                                         {slot.slot_date} at {String(slot.slot_time).slice(0, 5)}
                                     </p>
-                                    <p className="text-[#95b2d5]">
+                                    <p className="text-[#9b8fb5]">
                                         {slot.customer_name || "Caller"}
                                         {slot.customer_phone ? ` • ${slot.customer_phone}` : ""}
                                     </p>
@@ -368,20 +368,20 @@ export default function DashboardClient({
                     </div>
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="rounded-2xl border border-violet-500/15 bg-white/[0.02] p-5">
                     <h2 className="text-lg font-semibold">Tier Features</h2>
-                    <p className="mt-2 text-sm text-[#b8cdea]">Current plan: Tier {tier} ({tierName})</p>
-                    <div className="mt-3 space-y-2 text-sm text-[#c5d9f3]">
+                    <p className="mt-2 text-sm text-[#b8b0cc]">Current plan: Tier {tier} ({tierName})</p>
+                    <div className="mt-3 space-y-2 text-sm text-[#c4bdd6]">
                         <p>Tier 1+: PDF knowledge base upload</p>
                         <p>Tier 2+: WhatsApp automation controls</p>
                         <p>Tier 4: Custom MCP tools editor</p>
                     </div>
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="rounded-2xl border border-violet-500/15 bg-white/[0.02] p-5">
                     <h2 className="text-lg font-semibold">WhatsApp Settings</h2>
                     {tier < 2 ? (
-                        <p className="mt-2 text-sm text-[#ffcc9e]">Upgrade to Tier 2 or higher to enable WhatsApp.</p>
+                        <p className="mt-2 text-sm text-amber-400/80">Upgrade to Tier 2 or higher to enable WhatsApp.</p>
                     ) : (
                         <>
                             <label className="mt-3 flex items-center gap-2 text-sm">
@@ -396,35 +396,35 @@ export default function DashboardClient({
                                 type="button"
                                 onClick={onSaveWhatsapp}
                                 disabled={savingWhatsapp}
-                                className="mt-3 rounded-lg border border-white/20 px-4 py-2 text-sm disabled:opacity-50"
+                                className="mt-3 rounded-lg border border-violet-400/30 bg-violet-500/10 px-4 py-2 text-sm text-violet-200 transition hover:bg-violet-500/20 disabled:opacity-50"
                             >
                                 {savingWhatsapp ? "Saving..." : "Save WhatsApp Setting"}
                             </button>
-                            {whatsappMessage ? <p className="mt-2 text-sm text-[#bfe7ff]">{whatsappMessage}</p> : null}
+                            {whatsappMessage ? <p className="mt-2 text-sm text-violet-300">{whatsappMessage}</p> : null}
                         </>
                     )}
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+                <div className="rounded-2xl border border-violet-500/15 bg-white/[0.02] p-5">
                     <h2 className="text-lg font-semibold">Custom MCP Tools</h2>
                     {tier < 4 ? (
-                        <p className="mt-2 text-sm text-[#ffcc9e]">Upgrade to Tier 4 to configure custom MCP tools.</p>
+                        <p className="mt-2 text-sm text-amber-400/80">Upgrade to Tier 4 to configure custom MCP tools.</p>
                     ) : (
                         <>
                             <textarea
                                 value={toolsText}
                                 onChange={(e) => setToolsText(e.target.value)}
-                                className="mt-3 h-48 w-full rounded-lg border border-white/20 bg-[#0d1e32] px-3 py-2 font-mono text-xs"
+                                className="mt-3 h-48 w-full rounded-lg border border-violet-500/20 bg-[#0e0b16] px-3 py-2 font-mono text-xs"
                             />
                             <button
                                 type="button"
                                 onClick={onSaveTools}
                                 disabled={savingTools}
-                                className="mt-3 rounded-lg border border-white/20 px-4 py-2 text-sm disabled:opacity-50"
+                                className="mt-3 rounded-lg border border-violet-400/30 bg-violet-500/10 px-4 py-2 text-sm text-violet-200 transition hover:bg-violet-500/20 disabled:opacity-50"
                             >
                                 {savingTools ? "Saving..." : "Save Custom Tools"}
                             </button>
-                            {toolsMessage ? <p className="mt-2 text-sm text-[#bfe7ff]">{toolsMessage}</p> : null}
+                            {toolsMessage ? <p className="mt-2 text-sm text-violet-300">{toolsMessage}</p> : null}
                         </>
                     )}
                 </div>

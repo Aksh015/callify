@@ -117,21 +117,23 @@ export default async function DashboardPage() {
     : [];
 
   return (
-    <main className="min-h-screen bg-[#06101a] px-5 py-10 text-[#e7f1ff] sm:px-8">
+    <main className="min-h-screen bg-[#07060b] px-5 py-10 text-[#f0eef5] sm:px-8">
       <div className="mx-auto max-w-6xl space-y-6">
-        <header className="rounded-3xl border border-[#4a739f]/40 bg-[linear-gradient(140deg,#10243a_0%,#0a1a2d_72%,#0d2b4a_100%)] px-6 py-8 shadow-[0_22px_120px_rgba(16,87,170,0.2)] sm:px-10">
-          <p className="text-xs uppercase tracking-[0.2em] text-[#8ed9ff]">Dashboard</p>
-          <h1 className="mt-3 text-3xl font-semibold sm:text-4xl">
+        <header className="relative overflow-hidden rounded-3xl border border-violet-500/20 bg-[linear-gradient(140deg,#1a1028_0%,#0e0b18_72%,#1c1035_100%)] px-6 py-8 shadow-[0_22px_120px_rgba(139,92,246,0.12)] sm:px-10">
+          <div className="pointer-events-none absolute -right-20 -top-20 h-60 w-60 rounded-full bg-amber-500/5 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-16 -left-16 h-48 w-48 rounded-full bg-violet-500/10 blur-3xl" />
+          <p className="relative text-xs uppercase tracking-[0.2em] text-amber-400">Dashboard</p>
+          <h1 className="relative mt-3 text-3xl font-semibold sm:text-4xl">
             {profile?.business_name || "Your business workspace"}
           </h1>
-          <p className="mt-3 max-w-3xl text-sm text-[#bfd2ed] sm:text-base">
+          <p className="relative mt-3 max-w-3xl text-sm text-[#b8b0cc] sm:text-base">
             Operations workspace for Callify. Manage your business knowledge base, channel features,
             and advanced automation based on your active tier.
           </p>
-          <div className="mt-6 flex flex-wrap gap-3">
+          <div className="relative mt-6 flex flex-wrap gap-3">
             <Link
               href="/onboarding"
-              className="rounded-full border border-white/20 px-5 py-2 text-sm text-[#d7e5f9] hover:bg-white/10"
+              className="rounded-full border border-violet-400/30 px-5 py-2 text-sm text-violet-200 transition hover:bg-violet-500/10"
             >
               Edit onboarding
             </Link>
@@ -151,9 +153,9 @@ export default async function DashboardPage() {
         </section>
 
         <section className="grid gap-4 lg:grid-cols-2">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+          <div className="rounded-2xl border border-violet-500/15 bg-white/[0.02] p-5">
             <h2 className="text-lg font-semibold">Business Snapshot</h2>
-            <div className="mt-4 space-y-2 text-sm text-[#c8d9f1]">
+            <div className="mt-4 space-y-2 text-sm text-[#c4bdd6]">
               <DataRow label="Category" value={profile?.category || "-"} />
               <DataRow label="City" value={profile?.city || "-"} />
               <DataRow label="Phone" value={profile?.phone || "-"} />
@@ -162,9 +164,9 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[#8edcff]/30 bg-[#0a1f34] p-5">
+          <div className="rounded-2xl border border-amber-400/20 bg-amber-500/[0.03] p-5">
             <h2 className="text-lg font-semibold">Workspace Status</h2>
-            <ul className="mt-4 space-y-2 text-sm text-[#b5d0ee]">
+            <ul className="mt-4 space-y-2 text-sm text-[#c4bdd6]">
               <li>- Documents uploaded: {(docs || []).length}</li>
               <li>- WhatsApp enabled: {flags?.whatsapp_enabled ? "Yes" : "No"}</li>
               <li>- Custom MCP tools: {customTools.length}</li>
@@ -189,8 +191,8 @@ export default async function DashboardPage() {
 
 function Card({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-      <p className="text-xs uppercase tracking-[0.15em] text-[#8fabcf]">{label}</p>
+    <div className="rounded-2xl border border-violet-500/15 bg-white/[0.02] p-4">
+      <p className="text-xs uppercase tracking-[0.15em] text-amber-400/80">{label}</p>
       <p className="mt-2 text-lg font-semibold">{value}</p>
     </div>
   );
@@ -198,9 +200,9 @@ function Card({ label, value }: { label: string; value: string }) {
 
 function DataRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between rounded-lg border border-white/10 bg-[#0a1624] px-3 py-2">
-      <span className="text-[#96b3d8]">{label}</span>
-      <span className="text-[#e6f0ff]">{value}</span>
+    <div className="flex items-center justify-between rounded-lg border border-violet-500/10 bg-[#0e0b16] px-3 py-2">
+      <span className="text-[#9b8fb5]">{label}</span>
+      <span className="text-[#ece8f4]">{value}</span>
     </div>
   );
 }
