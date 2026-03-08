@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     const result = await runRuntimeTurn({
       utterance: payload.utterance,
       languageCode: payload.languageCode,
-      context: payload.context,
+      context: payload.context || ({} as RuntimeBusinessContext),
     });
 
     return NextResponse.json(result);

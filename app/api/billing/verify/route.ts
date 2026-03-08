@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { getCashfree } from "@/lib/cashfree/client";
 
 export async function POST(request: Request) {
@@ -22,11 +23,13 @@ export async function POST(request: Request) {
     );
   }
 
+  const admin = getSupabaseAdmin();
+
   // Fetch our payment record
-  const { data: payment } = await supabase
+  const { data: payment } = await admin
     .from("payments")
     .select("*")
-    .eq("cf_order_id", orderId)
+    .eq("order_id", orderId)
     .eq("user_id", user.id)
     .single();
 
@@ -54,22 +57,20 @@ export async function POST(request: Request) {
     }
 
     // Update payment record
-    await supabase
+    await admin
       .from("payments")
       .update({
         status: newStatus,
-        cf_payment_id:
-          orderData.cf_order_id?.toString() || null,
-        payment_method: (orderData as any).payment_group || null,
+        raw_payload: orderData,
       })
-      .eq("cf_order_id", orderId);
+      .eq("order_id", orderId);
 
-    // If paid, update business profile tier
+    // If paid, activate business plan.
     if (newStatus === "SUCCESS") {
-      await supabase
+      await admin
         .from("business_profiles")
-        .update({ tier: payment.tier })
-        .eq("id", payment.business_id);
+        .update({ plan_status: "active" })
+        .eq("id", payment.business_profile_id);
     }
 
     return NextResponse.json({

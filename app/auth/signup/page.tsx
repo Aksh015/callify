@@ -3,11 +3,13 @@
 import { createClient } from "@/lib/supabase/client";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
-export default function SignupPage() {
+function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect") || "/onboarding";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -44,7 +46,7 @@ export default function SignupPage() {
 
       setSuccess(data.message || "Account created! Redirecting...");
       setTimeout(() => {
-        router.push("/auth/login");
+        router.push(`/auth/login?redirect=${encodeURIComponent(redirect)}`);
       }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signup failed.");
@@ -60,7 +62,7 @@ export default function SignupPage() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md rounded-2xl border border-white/10 bg-white/[0.04] p-8"
       >
-        <h1 className="text-2xl font-semibold">Create your VoiceDesk account</h1>
+        <h1 className="text-2xl font-semibold">Create your Callify account</h1>
         <p className="mt-2 text-sm text-slate-400">
           Sign up to set up AI voice support for your business.
         </p>
@@ -132,12 +134,16 @@ export default function SignupPage() {
         <button
           onClick={async () => {
             const supabase = createClient();
-            await supabase.auth.signInWithOAuth({
+            const { error } = await supabase.auth.signInWithOAuth({
               provider: "google",
               options: {
-                redirectTo: `${window.location.origin}/auth/callback?redirect=/onboarding`,
+                redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirect)}`,
               },
             });
+
+            if (error) {
+              setError(error.message || "Google sign-in failed.");
+            }
           }}
           className="mt-4 flex w-full items-center justify-center gap-3 rounded-lg border border-white/15 bg-slate-900 py-2.5 font-medium text-slate-100 transition hover:bg-slate-800"
         >
@@ -176,5 +182,13 @@ export default function SignupPage() {
         </p>
       </motion.div>
     </main>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
   );
 }

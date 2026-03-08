@@ -9,14 +9,16 @@ import { Suspense, useState } from "react";
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams.get("redirect") || "/onboarding";
+  const redirect = searchParams.get("redirect") || "/";
+  const oauthError = searchParams.get("error") || "";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(oauthError);
   const [loading, setLoading] = useState(false);
+  const doctorEmail = "doctor@callify.app";
+  const doctorPassword = "Doctor@123";
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const loginWithCredentials = async (nextEmail: string, nextPassword: string) => {
     setError("");
     setLoading(true);
 
@@ -24,19 +26,40 @@ function LoginForm() {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: nextEmail, password: nextPassword }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Login failed.");
 
-      router.push(redirect);
+      await fetch("/api/demo/migrate", { method: "POST" }).catch(() => {
+        // Login should proceed even if migration fails.
+      });
+
+      // Smart post-login routing: paid users -> dashboard, others -> main page.
+      try {
+        const meRes = await fetch("/api/auth/me");
+        const meData = await meRes.json();
+        if (meRes.ok && meData?.profile?.plan_status === "active") {
+          router.push("/dashboard");
+        } else {
+          router.push(redirect || "/");
+        }
+      } catch {
+        router.push(redirect || "/");
+      }
+
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed.");
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await loginWithCredentials(email, password);
   };
 
   return (
@@ -46,7 +69,7 @@ function LoginForm() {
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md rounded-2xl border border-white/10 bg-white/[0.04] p-8"
       >
-        <h1 className="text-2xl font-semibold">Sign in to VoiceDesk</h1>
+        <h1 className="text-2xl font-semibold">Sign in to Callify</h1>
         <p className="mt-2 text-sm text-slate-400">
           Access your business dashboard and manage AI voice support.
         </p>
@@ -89,6 +112,19 @@ function LoginForm() {
           >
             {loading ? "Signing in..." : "Sign In"}
           </button>
+
+          <button
+            type="button"
+            disabled={loading}
+            onClick={async () => {
+              setEmail(doctorEmail);
+              setPassword(doctorPassword);
+              await loginWithCredentials(doctorEmail, doctorPassword);
+            }}
+            className="w-full rounded-lg border border-cyan-300/40 py-2.5 text-sm text-cyan-200 transition hover:bg-cyan-400/10 disabled:opacity-60"
+          >
+            Use Doctor Login (Hardcoded)
+          </button>
         </form>
 
         <div className="mt-6 flex items-center gap-3">
@@ -100,12 +136,16 @@ function LoginForm() {
         <button
           onClick={async () => {
             const supabase = createClient();
-            await supabase.auth.signInWithOAuth({
+            const { error } = await supabase.auth.signInWithOAuth({
               provider: "google",
               options: {
-                redirectTo: `${window.location.origin}/auth/callback?redirect=${redirect}`,
+                redirectTo: `${window.location.origin}/auth/callback?redirect=${encodeURIComponent(redirect)}`,
               },
             });
+
+            if (error) {
+              setError(error.message || "Google sign-in failed.");
+            }
           }}
           className="mt-4 flex w-full items-center justify-center gap-3 rounded-lg border border-white/15 bg-slate-900 py-2.5 font-medium text-slate-100 transition hover:bg-slate-800"
         >
