@@ -1,6 +1,8 @@
 "use client";
 
+import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 type ChatMessage = {
@@ -16,6 +18,8 @@ type DemoContextResponse = {
 };
 
 export default function DemoPage() {
+    const router = useRouter();
+    const [user, setUser] = useState<{ email?: string } | null>(null);
     const [contextText, setContextText] = useState("");
     const [demoPhoneNumber, setDemoPhoneNumber] = useState("");
     const [demoWebhookUrl, setDemoWebhookUrl] = useState("");
@@ -31,6 +35,11 @@ export default function DemoPage() {
     const [error, setError] = useState("");
 
     useEffect(() => {
+        const supabase = createClient();
+        supabase.auth.getUser().then(({ data }) => {
+            setUser(data.user);
+        });
+
         void fetch("/api/demo/context")
             .then((res) => res.json())
             .then((data: DemoContextResponse) => {
@@ -113,12 +122,42 @@ export default function DemoPage() {
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
-                        <Link
-                            href="/auth/signup?redirect=/onboarding"
-                            className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-medium text-slate-900"
-                        >
-                            Save & Sign Up
-                        </Link>
+                        {user ? (
+                            <>
+                                <span className="hidden text-sm text-slate-400 sm:block">{user.email}</span>
+                                <Link
+                                    href="/dashboard"
+                                    className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-medium text-slate-900"
+                                >
+                                    Dashboard
+                                </Link>
+                                <button
+                                    onClick={async () => {
+                                        await fetch("/api/auth/logout", { method: "POST" });
+                                        setUser(null);
+                                        router.refresh();
+                                    }}
+                                    className="rounded-lg border border-white/15 px-4 py-2 text-sm text-slate-300"
+                                >
+                                    Log Out
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <Link
+                                    href="/auth/signup?redirect=/onboarding"
+                                    className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-medium text-slate-900"
+                                >
+                                    Save & Sign Up
+                                </Link>
+                                <Link
+                                    href="/auth/login?redirect=/demo"
+                                    className="rounded-lg border border-white/15 px-4 py-2 text-sm text-slate-300"
+                                >
+                                    Sign In
+                                </Link>
+                            </>
+                        )}
                         <Link href="/" className="rounded-lg border border-white/15 px-4 py-2 text-sm text-slate-300">
                             Back Home
                         </Link>

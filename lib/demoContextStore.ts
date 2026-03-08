@@ -1,7 +1,7 @@
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 const DEFAULT_DEMO_CONTEXT =
-  "Demo assistant. Reply only using the configured demo context text. If information is missing in context, say that clearly and ask the caller to update demo context.";
+  "Welcome to Callify Demo! I'm a demo assistant that can answer questions about business information. Try asking me about business hours, services, pricing, or location. Note: This is a demo environment - I cannot process appointments, orders, or access any real customer data.";
 const DEMO_CONTEXT_SESSION_HASH = "__demo_global_context__";
 
 let demoContextTextCache: string | null = null;

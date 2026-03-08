@@ -1,14 +1,12 @@
 import { createHash } from "node:crypto";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { runRuntimeTurn } from "@/lib/runtime/orchestrator";
-import type { RuntimeBusinessContext } from "@/lib/mcp/router";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { getDemoContextText } from "@/lib/demoContextStore";
+import { handleSecureDemoTurn, sanitizeText } from "@/lib/demo/secureDemoHandler";
 
 type DemoTurnRequest = {
   message: string;
-  context?: RuntimeBusinessContext;
 };
 
 const COOKIE_NAME = "vd_guest_token";
@@ -24,17 +22,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "message is required" }, { status: 400 });
     }
 
-    const context: RuntimeBusinessContext = {
-      customContextText: await getDemoContextText(),
-      ...(body.context || {}),
-    };
+    // Get demo context
+    const demoContext = await getDemoContextText();
 
-    const result = await runRuntimeTurn({
+    // Use secure demo handler
+    const result = await handleSecureDemoTurn({
       utterance: body.message,
-      languageCode: "en-IN",
-      context,
+      demoContext: sanitizeText(demoContext),
     });
 
+    // Persist to database if session exists
     try {
       const store = await cookies();
       const token = store.get(COOKIE_NAME)?.value;
@@ -61,7 +58,7 @@ export async function POST(request: Request) {
               role: "assistant",
               message: result.responseText,
               intent: result.intent,
-              tool_used: result.action,
+              tool_used: "secure_demo_handler",
             },
           ]);
         }
@@ -73,10 +70,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       responseText: result.responseText,
       intent: result.intent,
-      action: result.action,
-      mcp: result.mcp,
-      slots: result.slots,
-      requiresInput: result.requiresInput,
+      action: "demo_response",
+      isSafe: result.isSafe,
     });
   } catch (error) {
     return NextResponse.json(
