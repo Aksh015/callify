@@ -102,6 +102,8 @@ function isGibberish(utterance: string): boolean {
     "the", "a", "an", "i", "you", "me", "my", "your", "tell", "get", "give",
     "want", "need", "have", "has", "price", "cost", "open", "close", "book",
     "order", "service", "business", "help", "please", "thank", "thanks", "bye",
+    // Common misspellings
+    "hy", "hii", "helo", "helllo", "thnx", "thx", "plz", "pls", "u", "r", "ur",
   ];
   
   const words = text.split(/\s+/);
@@ -157,12 +159,19 @@ function isSafeQuery(utterance: string): { safe: boolean; reason?: string } {
  * Classify user intent for demo mode
  */
 function classifyDemoIntent(utterance: string): string {
-  const text = utterance.toLowerCase();
+  const text = utterance.toLowerCase().trim();
 
-  // Greetings
+  // "How are you" type questions - conversational
   if (
-    /^(hi|hello|hey|good morning|good evening|good afternoon|namaste|namaskar)/.test(text) ||
-    /^(how are you|what'?s up)/.test(text)
+    /^(how are you|how r you|how r u|what'?s up|whats up|wassup|sup)/.test(text) ||
+    /^(how.*doing|how.*going)/.test(text)
+  ) {
+    return "how_are_you";
+  }
+
+  // Initial greetings
+  if (
+    /^(hi|hello|hey|good morning|good evening|good afternoon|namaste|namaskar|hy|hii|helo)(\s|$|!|\?)/.test(text)
   ) {
     return "greeting";
   }
@@ -174,14 +183,34 @@ function classifyDemoIntent(utterance: string): string {
     return "farewell";
   }
 
-  // Business hours/timing
+  // Specific opening time question
+  if (/(open|opening)\s*(time|hour|hr)(?!.*clos)/i.test(text) && !/clos/i.test(text)) {
+    return "ask_opening_time";
+  }
+
+  // Specific closing time question
+  if (/(clos|closing)\s*(time|hour|hr)/i.test(text)) {
+    return "ask_closing_time";
+  }
+
+  // General business hours/timing
   if (/open|close|hour|timing|when.*open|when.*close|schedule/.test(text)) {
     return "ask_about_hours";
   }
 
-  // Pricing
+  // Specific item price question (e.g., "how much is cake", "price of bread")
+  if (/(?:price|cost|how much).*(?:is|for|of)|(?:is|for|of).*(?:price|cost|how much)/.test(text)) {
+    return "ask_specific_price";
+  }
+
+  // General pricing
   if (/price|cost|charge|fee|rate|how much|expensive|cheap/.test(text)) {
     return "ask_about_pricing";
+  }
+
+  // Specific product availability (e.g., "do you have pastries")
+  if (/(?:do you have|got|sell|offer|available).*(?:and|or)?\s*\w+$/.test(text) && !/where|when|why|how/.test(text)) {
+    return "ask_specific_product";
   }
 
   // Services/Products
@@ -193,13 +222,18 @@ function classifyDemoIntent(utterance: string): string {
     return "ask_about_services";
   }
 
+  // Owner question specifically
+  if (/who.*(?:own|run|manage)|owner|proprietor/.test(text)) {
+    return "ask_about_owner";
+  }
+
   // Location
   if (/where|location|address|city|area|find you|reach/.test(text)) {
     return "ask_about_location";
   }
 
   // General business info
-  if (/about|who|owner|business|company|tell me more|information/.test(text)) {
+  if (/about|business|company|tell me more|information/.test(text)) {
     return "ask_about_business";
   }
 
@@ -272,6 +306,12 @@ function extractContextInfo(context: string) {
     info.owner = ownerMatch[1].trim();
   }
 
+  // Extract all pricing info
+  const priceMatches = context.match(/(\w+(?:\s+\w+)?)\s+(?:from\s+)?Rs?\.?\s*(\d+)/gi);
+  if (priceMatches) {
+    info.prices = priceMatches.join('|');
+  }
+
   return info;
 }
 
@@ -287,6 +327,20 @@ async function generateSmartResponse(
     return generateGreeting(context);
   }
 
+  if (intent === "how_are_you") {
+    const contextInfo = extractContextInfo(context);
+    const businessName = contextInfo.businessName || "the business";
+    
+    const responses = [
+      `I'm doing great, thank you for asking! I'm here to help you learn about ${businessName}. What would you like to know?`,
+      `I'm well, thanks! Ready to answer any questions you have about ${businessName}. How can I help?`,
+      `Doing wonderful! I'm excited to tell you about ${businessName}. What can I share with you?`,
+      `I'm doing fantastic! Let me help you with any questions about ${businessName}. What interests you?`,
+    ];
+    
+    return responses[Math.floor(Math.random() * responses.length)];
+  }
+
   if (intent === "farewell") {
     return generateFarewell();
   }
@@ -294,7 +348,35 @@ async function generateSmartResponse(
   const contextInfo = extractContextInfo(context);
   const queryLower = query.toLowerCase();
 
-  // Handle specific intents with template responses
+  // Handle specific opening time question
+  if (intent === "ask_opening_time") {
+    if (contextInfo.hours) {
+      const openingTime = contextInfo.hours.split(" to ")[0];
+      return `We open at ${openingTime}. Looking forward to seeing you!`;
+    }
+    // Try to extract opening time from context
+    const openMatch = context.match(/open(?:s|ing)?\s+(?:at|from)?\s*(\d+\s*[AP]M)/i);
+    if (openMatch) {
+      return `We open at ${openMatch[1]}. See you then!`;
+    }
+    return "Please check our business hours for opening time information.";
+  }
+
+  // Handle specific closing time question
+  if (intent === "ask_closing_time") {
+    if (contextInfo.hours) {
+      const closingTime = contextInfo.hours.split(" to ")[1];
+      return `We close at ${closingTime}. Make sure to visit us before then!`;
+    }
+    // Try to extract closing time from context
+    const closeMatch = context.match(/(?:to|until|close(?:s|ing)?(?:\s+at)?)\s*(\d+\s*[AP]M)/i);
+    if (closeMatch) {
+      return `We close at ${closeMatch[1]}. Happy to serve you until then!`;
+    }
+    return "Please check our business hours for closing time information.";
+  }
+
+  // Handle general hours question
   if (intent === "ask_about_hours") {
     if (contextInfo.hours) {
       return `We're open from ${contextInfo.hours}. Feel free to visit us during these hours!`;
@@ -304,6 +386,72 @@ async function generateSmartResponse(
       const sentences = context.split(/[.!?]+/).filter((s) => /open|hour|timing/i.test(s));
       return sentences[0]?.trim() || "Please check with us for our business hours.";
     }
+  }
+
+  // Handle specific item price question
+  if (intent === "ask_specific_price") {
+    // Extract the item name from query
+    const itemMatch = queryLower.match(/(?:price|cost|how much).*?(?:is|for|of)\s+(?:a\s+|an\s+|the\s+)?([a-z\s]+?)(?:\?|$|\.|,)/i) ||
+                     queryLower.match(/(?:is|for|of)\s+(?:a\s+|an\s+|the\s+)?([a-z\s]+?)\s*(?:price|cost)/i);
+    
+    if (itemMatch) {
+      const itemName = itemMatch[1].trim();
+      // Search for this item in context
+      const pricePattern = new RegExp(`${itemName}[^.]*?Rs?\.?\\s*(\\d+)`, 'gi');
+      const priceMatch = context.match(pricePattern);
+      
+      if (priceMatch && priceMatch[0]) {
+        return `${priceMatch[0]}. Anything else you'd like to know?`;
+      }
+      
+      // Fuzzy search in prices
+      const allPrices = context.match(/(\w+(?:\s+\w+)?)\s+(?:from\s+)?Rs?\.?\s*(\d+)/gi);
+      if (allPrices) {
+        const fuzzyMatch = allPrices.find(p => 
+          p.toLowerCase().includes(itemName.toLowerCase()) ||
+          itemName.toLowerCase().includes(p.split(/\s+/)[0].toLowerCase())
+        );
+        if (fuzzyMatch) {
+          return `${fuzzyMatch}. Would you like to know about anything else?`;
+        }
+      }
+      
+      return `I don't have specific pricing information for ${itemName} in the demo context. Would you like to know about our other offerings?`;
+    }
+  }
+
+  // Handle specific product availability
+  if (intent === "ask_specific_product") {
+    const productMatch = queryLower.match(/(?:do you have|got|sell|offer|available)\s+(?:any\s+)?([a-z\s]+?)(?:\?|$)/i);
+    
+    if (productMatch) {
+      const product = productMatch[1].trim();
+      const contextLower = context.toLowerCase();
+      
+      if (contextLower.includes(product)) {
+        const sentences = context.split(/[.!?]+/).filter(s => 
+          s.toLowerCase().includes(product)
+        );
+        if (sentences.length > 0) {
+          return `Yes! ${sentences[0].trim()}. What else would you like to know?`;
+        }
+        return `Yes, we have ${product}. Feel free to ask about more details!`;
+      }
+      
+      return `I don't have information about ${product} in the demo context. I can tell you about what's mentioned in our business information though!`;
+    }
+  }
+
+  // Handle owner question
+  if (intent === "ask_about_owner") {
+    if (contextInfo.owner) {
+      return `${contextInfo.businessName || 'The business'} is owned by ${contextInfo.owner}. How else can I help you?`;
+    }
+    const ownerSentences = context.split(/[.!?]+/).filter(s => /owner|proprietor|founded|started by/i.test(s));
+    if (ownerSentences.length > 0) {
+      return ownerSentences[0].trim() + ". Anything else you'd like to know?";
+    }
+    return "I don't have information about the owner in the demo context. What else would you like to know about the business?";
   }
 
   if (intent === "ask_about_pricing") {
