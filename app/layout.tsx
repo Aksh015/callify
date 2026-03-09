@@ -1,35 +1,19 @@
-import type { Metadata } from "next";
-import { Space_Grotesk, IBM_Plex_Mono } from "next/font/google";
-import "./globals.css";
-
-const spaceGrotesk = Space_Grotesk({
-  variable: "--font-space-grotesk",
-  subsets: ["latin"],
-});
-
-const ibmPlexMono = IBM_Plex_Mono({
-  variable: "--font-ibm-plex-mono",
-  weight: ["400", "500", "600"],
-  subsets: ["latin"],
-});
+import './globals.css';
+import { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: "Callify",
-  description: "Regional AI Voice Customer Care as a Service",
+  title: 'Callify | Hotel Voice AI',
+  description: 'AI Voice Receptionist for the Hospitality Sector',
 };
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
-      <body
-        className={`${spaceGrotesk.variable} ${ibmPlexMono.variable} antialiased`}
-      >
-        {children}
-      </body>
+      <body>{children}</body>
     </html>
   );
 }

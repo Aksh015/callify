@@ -1,136 +1,114 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { getSupabaseAdmin } from "@/lib/supabase/admin";
-import { getCashfree, getTierAmount } from "@/lib/cashfree/client";
+import { NextRequest, NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { supabaseAdmin } from "@/lib/supabase";
 
-function getErrorMessage(error: unknown) {
-  if (error instanceof Error) return error.message;
+const CASHFREE_BASE =
+  process.env.CASHFREE_ENVIRONMENT === "production"
+    ? "https://api.cashfree.com/pg"
+    : "https://sandbox.cashfree.com/pg";
 
-  if (error && typeof error === "object") {
-    const maybe = error as {
-      message?: string;
-      response?: { data?: { message?: string; error?: string } };
-      details?: string;
-    };
+const PLAN_AMOUNTS: Record<number, number> = {
+  1: 6,  // Starter — ₹6/month
+  2: 7,  // Pro     — ₹7/month
+};
 
-    return (
-      maybe.response?.data?.message ||
-      maybe.response?.data?.error ||
-      maybe.message ||
-      maybe.details ||
-      "Payment initiation failed."
-    );
-  }
-
-  return "Payment initiation failed.";
-}
-
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient();
-
+    // 1. Authenticate user
+    const supabase = await createSupabaseServerClient();
     const {
       data: { user },
-      error: userError,
+      error: authError,
     } = await supabase.auth.getUser();
 
-    if (userError || !user) {
-      return NextResponse.json(
-        { error: "Unauthorized. Please login again." },
-        { status: 401 },
-      );
+    if (authError || !user) {
+      return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
     }
 
-    const { businessId, tier } = (await request.json()) as {
+    // 2. Parse body
+    const { businessId, tier, isUpgrade } = (await req.json()) as {
       businessId: string;
-      tier: number;
+      tier: 1 | 2;
+      isUpgrade?: boolean;
     };
 
-    if (!businessId || !tier || tier < 1 || tier > 4) {
-      return NextResponse.json(
-        { error: "Valid businessId and tier (1-4) are required." },
-        { status: 400 },
-      );
+    if (!businessId || !tier || !PLAN_AMOUNTS[tier]) {
+      return NextResponse.json({ error: "Invalid request parameters." }, { status: 400 });
     }
 
-    const amount = getTierAmount(tier);
-    if (!amount) {
-      return NextResponse.json({ error: "Invalid tier." }, { status: 400 });
-    }
-
-    // Verify the business belongs to this user.
-    const admin = getSupabaseAdmin();
-    const { data: profile, error: profileError } = await admin
-      .from("business_profiles")
-      .select("id, business_name, plan_status")
+    // 3. Look up business to verify ownership
+    const { data: business, error: bizError } = await supabaseAdmin
+      .from("businesses")
+      .select("id, email, name, plan")
       .eq("id", businessId)
-      .eq("user_id", user.id)
-      .maybeSingle();
+      .eq("user_id", user.id) // ensure this business belongs to the authenticated user
+      .single();
 
-    if (profileError) {
-      return NextResponse.json(
-        { error: `Failed to load business: ${profileError.message}` },
-        { status: 500 },
-      );
-    }
-
-    if (!profile) {
+    if (bizError || !business) {
       return NextResponse.json({ error: "Business not found." }, { status: 404 });
     }
 
-    const orderId = `CF_${businessId.slice(0, 8)}_${Date.now()}`;
+    // 4. Build a unique order ID (prefix + timestamp + random)
+    const orderId = `CFY-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    let amount = PLAN_AMOUNTS[tier];
+    const planName = tier === 1 ? "Starter" : "Pro";
 
-    const cashfree = getCashfree();
+    if (isUpgrade && tier === 2 && business.plan === 'starter') {
+        amount = 1; // 1 rupee differential upgrade from Starter to Pro
+    }
 
-    const orderRequest = {
-      order_amount: amount,
-      order_currency: "INR",
-      order_id: orderId,
-      customer_details: {
-        customer_id: user.id.replace(/-/g, "").slice(0, 20),
-        customer_email: user.email!,
-        customer_phone: "9999999999", // placeholder - will be updated from profile
+    // 5. Create Cashfree order via REST API
+    const cfResponse = await fetch(`${CASHFREE_BASE}/orders`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-version": "2023-08-01",
+        "x-client-id": process.env.CASHFREE_APP_ID!,
+        "x-client-secret": process.env.CASHFREE_SECRET_KEY!,
       },
-      order_meta: {
-        return_url: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/dashboard?payment_status=success&order_id=${orderId}`,
-      },
-      order_note: `Callify Tier ${tier} - ${profile.business_name}`,
-    };
-
-    const response = await cashfree.PGCreateOrder(orderRequest);
-    const orderData = response.data;
-
-    // Save payment record
-    const { error: insertPaymentError } = await admin.from("payments").insert({
-      business_profile_id: businessId,
-      user_id: user.id,
-      order_id: orderId,
-      provider: "cashfree",
-      amount,
-      currency: "INR",
-      raw_payload: {
-        payment_session_id: orderData.payment_session_id,
-      },
-      status: "PENDING",
-      tier,
+      body: JSON.stringify({
+        order_id: orderId,
+        order_amount: amount,
+        order_currency: "INR",
+        order_note: `Callify AI — ${planName} Plan (Hotel)`,
+        customer_details: {
+          customer_id: user.id,
+          customer_email: business.email,
+          customer_name: business.name ?? business.email,
+          customer_phone: "9999999999", // placeholder — no phone at this stage
+        },
+        order_meta: {
+          return_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/billing/callback?order_id={order_id}&business_id=${businessId}`,
+          notify_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/billing/webhook`,
+        },
+      }),
     });
 
-    if (insertPaymentError) {
+    const cfData = await cfResponse.json();
+
+    if (!cfResponse.ok || !cfData.payment_session_id) {
+      console.error("[billing/checkout] Cashfree error:", cfData);
       return NextResponse.json(
-        { error: `Failed to save payment record: ${insertPaymentError.message}` },
-        { status: 500 },
+        { error: cfData.message || "Failed to create Cashfree order." },
+        { status: 502 }
       );
     }
 
+    // 6. Persist the order ID on the business row for later verification
+    await supabaseAdmin
+      .from("businesses")
+      .update({ cashfree_order_id: orderId })
+      .eq("id", businessId);
+
     return NextResponse.json({
       orderId,
-      paymentSessionId: orderData.payment_session_id,
-      amount,
-      tier,
+      paymentSessionId: cfData.payment_session_id,
     });
-  } catch (error: unknown) {
-    console.error("Cashfree create order failed:", error);
-    const message = getErrorMessage(error);
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch (err) {
+    console.error("[billing/checkout] unexpected error:", err);
+    return NextResponse.json(
+      { error: "An unexpected error occurred. Please try again." },
+      { status: 500 }
+    );
   }
 }

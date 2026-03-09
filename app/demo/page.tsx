@@ -1,248 +1,88 @@
 "use client";
-
-import { createClient } from "@/lib/supabase/client";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-
-type ChatMessage = {
-    role: "user" | "assistant";
-    text: string;
-};
-
-type DemoContextResponse = {
-    text?: string;
-    error?: string;
-    demoPhoneNumber?: string;
-    demoWebhookUrl?: string;
-};
+import React, { useState } from 'react';
+import styles from './demo.module.css';
+import { Bot, User, Send, PhoneCall } from 'lucide-react';
+import Link from 'next/link';
 
 export default function DemoPage() {
-    const router = useRouter();
-    const [user, setUser] = useState<{ email?: string } | null>(null);
-    const [contextText, setContextText] = useState("");
-    const [demoPhoneNumber, setDemoPhoneNumber] = useState("");
-    const [demoWebhookUrl, setDemoWebhookUrl] = useState("");
-    const [messages, setMessages] = useState<ChatMessage[]>([
-        {
-            role: "assistant",
-            text: "Welcome to Callify web demo. Update the context text if needed, then ask a question.",
-        },
-    ]);
-    const [input, setInput] = useState("");
-    const [savingContext, setSavingContext] = useState(false);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState("");
+  const [messages, setMessages] = useState([
+    { role: 'ai', text: 'Welcome to Sunset Oasis Hotel. How can I assist you today? Are you looking to book a room, or do you have a question?' }
+  ]);
+  const [inputVal, setInputVal] = useState('');
+  const [loading, setLoading] = useState(false);
 
-    useEffect(() => {
-        const supabase = createClient();
-        supabase.auth.getUser().then(({ data }) => {
-            setUser(data.user);
-        });
+  const handleSend = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputVal.trim()) return;
 
-        void fetch("/api/demo/context")
-            .then((res) => res.json())
-            .then((data: DemoContextResponse) => {
-                setContextText(data.text || "");
-                setDemoPhoneNumber(data.demoPhoneNumber || "");
-                setDemoWebhookUrl(data.demoWebhookUrl || "");
-            })
-            .catch(() => {
-                // Keep page usable even if context fetch fails.
-            });
-    }, []);
+    const userMsg = inputVal;
+    setMessages(prev => [...prev, { role: 'user', text: userMsg }]);
+    setInputVal('');
+    setLoading(true);
 
-    async function saveContext() {
-        setSavingContext(true);
-        setError("");
+    // Simulate AI response based on context.txt flow
+    setTimeout(() => {
+      let aiResponse = "I can help with that. Let me check our availability.";
+      
+      if (userMsg.toLowerCase().includes('deluxe') || userMsg.toLowerCase().includes('weekend')) {
+        aiResponse = "Yes, we have deluxe rooms available from Friday to Sunday. The total rate is $300. Would you like me to book one for you right now?";
+      } else if (userMsg.toLowerCase().includes('book') || userMsg.toLowerCase().includes('yes')) {
+        aiResponse = "Perfect. Your deluxe room is on hold. To complete this reservation, I am transferring you to our secure payment gateway. Please enter your 16-digit card number using your phone's keypad.";
+      }
 
-        try {
-            const res = await fetch("/api/demo/context", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ text: contextText }),
-            });
-            const data = (await res.json()) as DemoContextResponse;
-            if (!res.ok) {
-                throw new Error(data.error || "Failed to save context.");
-            }
-            setContextText(data.text || contextText);
-            setDemoPhoneNumber(data.demoPhoneNumber || demoPhoneNumber);
-            setDemoWebhookUrl(data.demoWebhookUrl || demoWebhookUrl);
-        } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed to save context.");
-        } finally {
-            setSavingContext(false);
-        }
-    }
+      setMessages(prev => [...prev, { role: 'ai', text: aiResponse }]);
+      setLoading(false);
+    }, 1500);
+  };
 
-    async function sendMessage() {
-        const message = input.trim();
-        if (!message || loading) return;
+  return (
+    <div className={styles.container}>
+      <header className={styles.header}>
+        <div className={styles.headerInfo}>
+          <h1>Voice Assistant Simulator</h1>
+          <p>Test your hotel AI's conversation flow natively (Text mode simulation).</p>
+        </div>
+        <Link href="/dashboard" className="btn-secondary">Back to Dashboard</Link>
+      </header>
 
-        setError("");
-        setInput("");
-        setLoading(true);
-        setMessages((prev) => [...prev, { role: "user", text: message }]);
-
-        try {
-            const res = await fetch("/api/demo/turn", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ message }),
-            });
-
-            const data = (await res.json()) as { responseText?: string; error?: string };
-            if (!res.ok) {
-                throw new Error(data.error || "Failed to get demo response.");
-            }
-
-            setMessages((prev) => [
-                ...prev,
-                {
-                    role: "assistant",
-                    text: data.responseText || "No response generated.",
-                },
-            ]);
-        } catch (e) {
-            setError(e instanceof Error ? e.message : "Failed to get demo response.");
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    return (
-        <main className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100">
-            <div className="mx-auto max-w-5xl space-y-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <h1 className="text-3xl font-semibold">Try Demo Chat</h1>
-                        <p className="mt-1 text-sm text-slate-400">
-                            One context textbox controls website demo and demo-phone webhook responses.
-                        </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        {user ? (
-                            <>
-                                <span className="hidden text-sm text-slate-400 sm:block">{user.email}</span>
-                                <Link
-                                    href="/dashboard"
-                                    className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-medium text-slate-900"
-                                >
-                                    Dashboard
-                                </Link>
-                                <button
-                                    onClick={async () => {
-                                        await fetch("/api/auth/logout", { method: "POST" });
-                                        setUser(null);
-                                        router.refresh();
-                                    }}
-                                    className="rounded-lg border border-white/15 px-4 py-2 text-sm text-slate-300"
-                                >
-                                    Log Out
-                                </button>
-                            </>
-                        ) : (
-                            <>
-                                <Link
-                                    href="/auth/signup?redirect=/onboarding"
-                                    className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-medium text-slate-900"
-                                >
-                                    Save & Sign Up
-                                </Link>
-                                <Link
-                                    href="/auth/login?redirect=/demo"
-                                    className="rounded-lg border border-white/15 px-4 py-2 text-sm text-slate-300"
-                                >
-                                    Sign In
-                                </Link>
-                            </>
-                        )}
-                        <Link href="/" className="rounded-lg border border-white/15 px-4 py-2 text-sm text-slate-300">
-                            Back Home
-                        </Link>
-                    </div>
-                </div>
-
-                <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                    <h2 className="text-lg font-semibold">Demo Number</h2>
-                    <p className="mt-1 text-sm text-slate-300">
-                        {demoPhoneNumber ? `Call ${demoPhoneNumber}` : "Demo number is not configured yet."}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-400">
-                        Calls to this number hit a dedicated demo webhook and respond only from the context text below.
-                    </p>
-                    {demoWebhookUrl && (
-                        <p className="mt-2 rounded-md border border-white/10 bg-slate-900 px-3 py-2 text-xs text-slate-300">
-                            Webhook: {demoWebhookUrl}
-                        </p>
-                    )}
-                </section>
-
-                <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                    <div className="flex items-center justify-between">
-                        <h2 className="text-lg font-semibold">Context Text</h2>
-                        <button
-                            onClick={() => void saveContext()}
-                            disabled={savingContext}
-                            className="rounded-lg bg-cyan-400 px-3 py-1.5 text-sm font-medium text-slate-900 disabled:opacity-60"
-                        >
-                            {savingContext ? "Saving..." : "Save Context"}
-                        </button>
-                    </div>
-                    <p className="mt-1 text-xs text-slate-400">
-                        Keep this short and factual. The demo Twilio number will answer using only this context.
-                    </p>
-                    <textarea
-                        value={contextText}
-                        onChange={(e) => setContextText(e.target.value)}
-                        className="mt-3 h-36 w-full rounded-lg border border-white/15 bg-slate-900 px-3 py-2 text-sm"
-                    />
-                </section>
-
-                <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-                    <h2 className="text-lg font-semibold">Demo Conversation</h2>
-                    <div className="mt-3 h-[380px] overflow-y-auto rounded-xl border border-white/10 bg-slate-900/60 p-3">
-                        <div className="space-y-3">
-                            {messages.map((msg, idx) => (
-                                <div
-                                    key={`${msg.role}-${idx}`}
-                                    className={`max-w-[90%] rounded-lg px-3 py-2 text-sm ${msg.role === "user"
-                                        ? "ml-auto bg-cyan-400 text-slate-900"
-                                        : "bg-white/10 text-slate-100"
-                                        }`}
-                                >
-                                    {msg.text}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    {error && <p className="mt-3 text-sm text-rose-300">{error}</p>}
-
-                    <div className="mt-4 flex gap-2">
-                        <input
-                            value={input}
-                            onChange={(e) => setInput(e.target.value)}
-                            onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                    e.preventDefault();
-                                    void sendMessage();
-                                }
-                            }}
-                            placeholder="Ask a question..."
-                            className="w-full rounded-lg border border-white/15 bg-slate-900 px-3 py-2 text-sm"
-                        />
-                        <button
-                            onClick={() => void sendMessage()}
-                            disabled={loading}
-                            className="rounded-lg bg-cyan-400 px-4 py-2 text-sm font-medium text-slate-900 disabled:opacity-60"
-                        >
-                            {loading ? "Thinking..." : "Send"}
-                        </button>
-                    </div>
-                </section>
+      <div className={`glass-panel ${styles.chatWindow}`}>
+        <div className={styles.messages}>
+          {messages.map((m, i) => (
+            <div key={i} className={`${styles.messageRow} ${m.role === 'user' ? styles.user : ''}`}>
+              <div className={`${styles.avatar} ${m.role === 'ai' ? styles.ai : ''}`}>
+                {m.role === 'ai' ? <Bot size={20} /> : <User size={20} />}
+              </div>
+              <div className={styles.bubble}>
+                {m.text}
+              </div>
             </div>
-        </main>
-    );
+          ))}
+          {loading && (
+            <div className={`${styles.messageRow}`}>
+              <div className={`${styles.avatar} ${styles.ai}`}>
+                <Bot size={20} />
+              </div>
+              <div className={styles.bubble} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontStyle: "italic", color: "var(--text-muted)" }}>Agent is thinking...</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <form className={styles.inputArea} onSubmit={handleSend}>
+          <input 
+            type="text" 
+            className={styles.input} 
+            placeholder="Type your request (e.g., 'Do you have a deluxe room available this weekend?')" 
+            value={inputVal}
+            onChange={(e) => setInputVal(e.target.value)}
+            disabled={loading}
+          />
+          <button type="submit" className={`btn-primary ${styles.sendBtn}`} disabled={loading}>
+            <Send size={20} style={{ marginLeft: '-2px' }}/>
+          </button>
+        </form>
+      </div>
+    </div>
+  );
 }

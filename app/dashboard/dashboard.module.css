@@ -1,0 +1,495 @@
+/* ══════════════════════════════════════
+   Layout
+══════════════════════════════════════ */
+.layoutWrapper {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+  background-color: var(--bg-dark);
+}
+
+/* ══════════════════════════════════════
+   Sidebar
+══════════════════════════════════════ */
+.sidebar {
+  width: 268px;
+  flex-shrink: 0;
+  background: rgba(10, 14, 26, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem;
+  z-index: 10;
+  gap: 0;
+}
+
+/* ── Brand / Hotel Identity ── */
+.sidebarHeader {
+  margin-bottom: 1.75rem;
+}
+
+.sidebarBrand {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  margin-bottom: 0.6rem;
+}
+
+.brandIconWrap {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(245, 158, 11, 0.08));
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.brandIcon {
+  color: #fbbf24;
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.brandName {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 170px;
+  display: block;
+}
+
+.brandSub {
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.35);
+  font-weight: 400;
+  margin-top: 1px;
+}
+
+.brandNameSkeleton {
+  width: 130px;
+  height: 16px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.06) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  margin-top: 3px;
+}
+
+.callifyBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  margin-left: 0;
+}
+
+.planPill {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(251, 191, 36, 0.15);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+  color: #fbbf24;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ── Nav ── */
+.sidebarNav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.875rem;
+  border-radius: 10px;
+  color: rgba(255,255,255,0.4);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.9rem;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.navItem:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(255, 255, 255, 0.06);
+}
+
+.navItem.active {
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.12), rgba(251, 191, 36, 0.04));
+  border-color: rgba(251, 191, 36, 0.2);
+  color: #fbbf24;
+}
+
+/* ── Footer ── */
+.sidebarFooter {
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.userCard {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.userAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.userAvatarFallback {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  color: #000;
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.userInfo {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.userName {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.85);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.userEmail {
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.logoutBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.6rem 0.875rem;
+  width: 100%;
+  border-radius: 10px;
+  color: rgba(239, 68, 68, 0.7);
+  background: transparent;
+  border: 1px solid transparent;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 500;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.logoutBtn:hover {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+}
+
+/* ══════════════════════════════════════
+   Main Content
+══════════════════════════════════════ */
+.mainContent {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Top Bar ── */
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.875rem 2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  background: rgba(5, 7, 15, 0.6);
+  backdrop-filter: blur(10px);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.topBarLeft {
+  display: flex;
+  align-items: center;
+}
+
+.topBarBreadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.topBarHotel {
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 600;
+}
+
+.topBarSep {
+  color: rgba(255, 255, 255, 0.2);
+  font-size: 0.75rem;
+}
+
+.topBarPage {
+  color: rgba(255, 255, 255, 0.4);
+  font-weight: 400;
+  text-transform: capitalize;
+}
+
+.topBarPlan {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  color: #10b981;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.topBarPlanDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.7);
+}
+
+/* ══════════════════════════════════════
+   Dashboard Page Content
+══════════════════════════════════════ */
+.dashboardContainer {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+  flex: 1;
+}
+
+.dashboardHeader {
+  margin-bottom: 2rem;
+}
+
+.dashboardHeader h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+  color: #ffffff;
+  letter-spacing: -0.02em;
+}
+
+.hotelNameAccent {
+  color: #fbbf24;
+}
+
+.dashboardHeader p {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.headerTitleSkeleton {
+  width: 320px;
+  height: 28px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.1) 50%, rgba(255,255,255,0.06) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.headerSubSkeleton {
+  width: 220px;
+  height: 16px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.07) 50%, rgba(255,255,255,0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+/* ══════════════════════════════════════
+   Metrics
+══════════════════════════════════════ */
+.metricsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.metricCard {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  border-radius: 16px !important;
+}
+
+.metricHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.metricTitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.metricIconCyan {
+  color: var(--accent-cyan);
+}
+
+.metricIconPurple {
+  color: var(--accent-purple);
+}
+
+.metricValue {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.02em;
+}
+
+.metricChange.positive {
+  color: var(--success);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.metricChange.negative {
+  color: var(--danger);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+/* ══════════════════════════════════════
+   Reservations Table
+══════════════════════════════════════ */
+.recentReservations {
+  padding: 1.75rem;
+  margin-bottom: 2rem;
+  border-radius: 16px !important;
+}
+
+.recentReservations h2 {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 1.25rem;
+}
+
+.reservationsTable {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.reservationsTable th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+.reservationsTable td {
+  padding: 0.875rem 1rem;
+  color: rgba(255,255,255,0.8);
+  font-size: 0.9rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.reservationsTable tr:last-child td {
+  border-bottom: none;
+}
+
+/* ── Status Badges ── */
+.statusBadge {
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.statusConfirmed {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.statusPending {
+  background: rgba(245, 158, 11, 0.12);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.25);
+}
+
+/* ══════════════════════════════════════
+   Animations
+══════════════════════════════════════ */
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}

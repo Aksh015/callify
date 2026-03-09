@@ -1,19 +1,98 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap");
 @import "tailwindcss";
 
 :root {
-  --background: #07060b;
-  --foreground: #f0eef5;
+  --bg-dark: #07090f;
+  --panel-bg: rgba(20, 25, 38, 0.6);
+  --panel-border: rgba(19, 182, 236, 0.15);
+  --accent-cyan: #13b6ec;
+  --accent-purple: #8b5cf6;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --success: #10b981;
+  --warning: #f59e0b;
+  --danger: #ef4444;
+  --glass-blur: blur(16px);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-space-grotesk);
-  --font-mono: var(--font-ibm-plex-mono);
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
 body {
-  background: #07060b;
-  color: var(--foreground);
-  font-family: var(--font-space-grotesk), sans-serif;
+  font-family: "Space Grotesk", sans-serif;
+  background-color: var(--bg-dark);
+  color: var(--text-main);
+  background-image:
+    radial-gradient(
+      circle at 15% 50%,
+      rgba(19, 182, 236, 0.08),
+      transparent 25%
+    ),
+    radial-gradient(
+      circle at 85% 30%,
+      rgba(139, 92, 246, 0.08),
+      transparent 25%
+    );
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Glassmorphism Panel Utility */
+.glass-panel {
+  background: var(--panel-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* Premium Button Utility */
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-cyan), #0ea5e9);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 14px 0 rgba(19, 182, 236, 0.39);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(19, 182, 236, 0.6);
+}
+
+.btn-secondary {
+  background: transparent;
+  color: var(--accent-cyan);
+  border: 1px solid var(--accent-cyan);
+  border-radius: 8px;
+  padding: 10px 20px;
+  font-family: "Space Grotesk", sans-serif;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+  background: rgba(19, 182, 236, 0.1);
+}
+
+/* Base Layout Container */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }

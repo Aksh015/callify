@@ -1,188 +1,119 @@
-import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
-import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { NextRequest, NextResponse } from "next/server";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { supabaseAdmin } from "@/lib/supabase";
 
-export const runtime = "nodejs";
-
-type IncomingBusiness = {
-  businessName: string;
-  category: "doctor" | "hotel" | "salon" | "other";
-  city: string;
-  phone: string;
-  timezone?: string;
-  systemPrompt?: string;
-};
-
-type OnboardingRequest = {
-  business: IncomingBusiness;
-  tier: number;
-};
-
-function isValidTier(tier: number) {
-  return Number.isInteger(tier) && tier >= 1 && tier <= 4;
-}
-
-function extractErrorMessage(error: unknown) {
-  if (error instanceof Error) return error.message;
-  if (error && typeof error === "object") {
-    const maybe = error as { message?: string; details?: string; hint?: string };
-    return maybe.message || maybe.details || maybe.hint || "Failed to save onboarding details.";
-  }
-  return "Failed to save onboarding details.";
-}
-
-export async function POST(request: Request) {
+export async function POST(req: NextRequest) {
   try {
-    const supabase = await createClient();
-
+    // 1. Authenticate the user
+    const supabase = await createSupabaseServerClient();
     const {
       data: { user },
+      error: authError,
     } = await supabase.auth.getUser();
 
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (authError || !user) {
+      return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
     }
 
-    const admin = getSupabaseAdmin();
-
-    const body = (await request.json()) as OnboardingRequest;
-    const business = body?.business;
-    const tier = Number(body?.tier || 0);
-
-    if (!business?.businessName?.trim()) {
-      return NextResponse.json({ error: "Business name is required." }, { status: 400 });
-    }
-    if (!business?.category?.trim()) {
-      return NextResponse.json({ error: "Category is required." }, { status: 400 });
-    }
-    if (!business?.city?.trim()) {
-      return NextResponse.json({ error: "City is required." }, { status: 400 });
-    }
-    if (!business?.phone?.trim()) {
-      return NextResponse.json({ error: "Phone is required." }, { status: 400 });
-    }
-    if (!isValidTier(tier)) {
-      return NextResponse.json({ error: "Tier must be between 1 and 4." }, { status: 400 });
-    }
-
-    const payload = {
-      user_id: user.id,
-      business_name: business.businessName.trim(),
-      category: business.category,
-      city: business.city.trim(),
-      phone: business.phone.trim(),
-      timezone: business.timezone?.trim() || "Asia/Kolkata",
-      system_prompt: business.systemPrompt?.trim() || null,
-      plan_status: "pending_payment",
+    // 2. Parse request body
+    const body = await req.json();
+    const { hotel, tier } = body as {
+      hotel: {
+        hotelName: string;
+        city: string;
+        phone: string;
+        timezone: string;
+        systemPrompt?: string;
+      };
+      tier: 1 | 2;
     };
 
-    const { data: existingProfile } = await admin
-      .from("business_profiles")
+    // 3. Validate required fields
+    if (!hotel?.hotelName?.trim()) {
+      return NextResponse.json({ error: "Hotel name is required." }, { status: 400 });
+    }
+    if (!hotel?.city?.trim()) {
+      return NextResponse.json({ error: "City is required." }, { status: 400 });
+    }
+    if (!hotel?.phone?.trim()) {
+      return NextResponse.json({ error: "Phone number is required." }, { status: 400 });
+    }
+    if (tier !== 1 && tier !== 2) {
+      return NextResponse.json({ error: "Invalid plan selected." }, { status: 400 });
+    }
+
+    const planName = tier === 1 ? "starter" : "pro";
+
+    // 4. Upsert the business record (link to Supabase auth user)
+    const { data: business, error: bizError } = await supabaseAdmin
+      .from("businesses")
+      .upsert(
+        {
+          user_id: user.id,
+          email: user.email,
+          name: user.user_metadata?.full_name ?? user.email,
+          plan: planName,
+          plan_status: "pending", // becomes 'active' after payment verified
+        },
+        { onConflict: "user_id" }
+      )
       .select("id")
-      .eq("user_id", user.id)
+      .single();
+
+    if (bizError || !business) {
+      console.error("[onboarding] business upsert error:", bizError);
+      return NextResponse.json(
+        { error: "Failed to create business record." },
+        { status: 500 }
+      );
+    }
+
+    // 5. Save hotel record — check if one already exists for this business
+    const { data: existingHotel } = await supabaseAdmin
+      .from("hotels")
+      .select("id")
+      .eq("business_id", business.id)
       .maybeSingle();
 
-    let businessId = "";
+    const hotelPayload = {
+      business_id: business.id,
+      name: hotel.hotelName.trim(),
+      type: "Hotel", // hotel-only platform
+      address: hotel.city.trim(),
+      timezone: hotel.timezone?.trim() || "Asia/Kolkata",
+      phone_number: hotel.phone.trim(),
+    };
 
-    if (existingProfile?.id) {
-      const { data: updated, error: updateError } = await admin
-        .from("business_profiles")
-        .update(payload)
-        .eq("id", existingProfile.id)
-        .select("id")
-        .single();
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      businessId = updated.id;
+    let hotelError: any = null;
+    if (existingHotel) {
+      // Update existing hotel record
+      const { error } = await supabaseAdmin
+        .from("hotels")
+        .update(hotelPayload)
+        .eq("id", existingHotel.id);
+      hotelError = error;
     } else {
-      const { data: inserted, error: insertError } = await admin
-        .from("business_profiles")
-        .insert(payload)
-        .select("id")
-        .single();
-
-      if (insertError) {
-        throw insertError;
-      }
-
-      businessId = inserted.id;
+      // Insert new hotel record
+      const { error } = await supabaseAdmin
+        .from("hotels")
+        .insert(hotelPayload);
+      hotelError = error;
     }
 
-    const { error: factError } = await admin.from("business_facts").upsert(
-      {
-        business_profile_id: businessId,
-        fact_key: "selected_tier",
-        fact_value: { tier },
-      },
-      { onConflict: "business_profile_id,fact_key" },
+    if (hotelError) {
+      console.error("[onboarding] hotel save error:", hotelError);
+      return NextResponse.json(
+        { error: "Failed to save hotel details." },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ businessId: business.id });
+  } catch (err) {
+    console.error("[onboarding] unexpected error:", err);
+    return NextResponse.json(
+      { error: "An unexpected error occurred. Please try again." },
+      { status: 500 }
     );
-
-    if (factError) {
-      // Keep onboarding flow unblocked if this optional write fails due schema drift.
-      console.warn("selected_tier persistence skipped", factError);
-    }
-
-    return NextResponse.json({
-      ok: true,
-      businessId,
-      tier,
-      planStatus: "pending_payment",
-    });
-  } catch (error: unknown) {
-    console.error("onboarding create failed", error);
-    const message = extractErrorMessage(error);
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
-}
-
-export async function GET() {
-  try {
-    const supabase = await createClient();
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const admin = getSupabaseAdmin();
-
-    const { data: profile, error: profileError } = await admin
-      .from("business_profiles")
-      .select("id, business_name, category, city, phone, timezone, system_prompt, plan_status, created_at")
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (profileError) {
-      throw profileError;
-    }
-
-    const { data: selectedTierFact } = await admin
-      .from("business_facts")
-      .select("fact_value")
-      .eq("business_profile_id", profile?.id || "")
-      .eq("fact_key", "selected_tier")
-      .maybeSingle();
-
-    const { data: payments } = await admin
-      .from("payments")
-      .select("id, order_id, amount, currency, tier, status, created_at")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(10);
-
-    return NextResponse.json({
-      profile,
-      selectedTier: selectedTierFact?.fact_value?.tier || null,
-      payments: payments || [],
-    });
-  } catch (error) {
-    console.error("onboarding fetch failed", error);
-    return NextResponse.json({ error: "Failed to fetch onboarding data." }, { status: 500 });
   }
 }
