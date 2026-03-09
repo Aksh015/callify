@@ -27,7 +27,7 @@ CREATE TABLE public.hotels (
     business_id UUID REFERENCES public.businesses(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     name TEXT NOT NULL,
-    type TEXT NOT NULL,          -- e.g., 'Resort', 'Boutique', 'Business'
+    type TEXT NOT NULL,          -- e.g., 'Boutique', 'Luxury', 'Business'
     address TEXT NOT NULL,
     timezone TEXT NOT NULL DEFAULT 'UTC',
     phone_number TEXT NOT NULL,  -- Hotel's own front-desk phone (fallback)

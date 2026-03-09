@@ -414,7 +414,7 @@ export default function OnboardingPage() {
                                             label="Hotel Name"
                                             value={hotel.hotelName}
                                             onChange={(v) => setHotel((p) => ({ ...p, hotelName: v }))}
-                                            placeholder="e.g. Grand Plaza Resort"
+                                            placeholder="e.g. Grand Plaza Hotel"
                                             icon="🏨"
                                         />
                                         <Field

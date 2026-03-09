@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Callify - Hotel Voice AI
 
-## Getting Started
+Welcome to **Callify**, your premium 24/7 AI Voice Receptionist exclusively for hotels. This project was built from scratch with a mission to deliver a state-of-the-art guest experience using Next.js, Supabase, and Voice AI.
 
-First, run the development server:
+## 🚀 Key Project Components
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+| Module                     | Description                                                                                                              | Status         |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------ | -------------- |
+| **Landing & Pricing**      | Premium dark-mode introduction to Callify with detailed pricing cards for Boutique, Professional, and Enterprise hotels. | ✅ Implemented |
+| **Merchant Dashboard**     | A glassmorphism interface featuring overview metrics, an interactive Inventory calendar, and detailed call analytics.    | ✅ Implemented |
+| **Onboarding Flow**        | A streamlined configuration page for hotel managers to upload knowledge bases (PDFs) and sync PMS keys.                  | ✅ Implemented |
+| **Supabase Schema**        | A production-ready SQL structure for \`Hotels\`, \`Rooms\`, \`Reservations\`, \`HotelServices\`, and \`CallLogs\`.       | ✅ Implemented |
+| **AI Persona & Config**    | Strictly bounded hotel prompt designed to handle room bookings while rejecting off-topic queries.                        | ✅ Implemented |
+| **Voice AI Simulation**    | A built-in testing interface to simulate the AI's response logic directly within the app.                                | ✅ Implemented |
+| **Twilio IVR Payment Hub** | Foundational API routing for secure DTMF-based payment collection over the phone.                                        | ✅ Implemented |
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🛠️ Local Development
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+To run the project locally, follow these steps:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Install Dependencies:**
+   \`\`\`bash
+   npm install
+   \`\`\`
 
-## Learn More
+2. **Supabase Setup:**
+   - Go to your Supabase project dashboard.
+   - Run the provided \`supabase_schema.sql\` in the SQL Editor.
 
-To learn more about Next.js, take a look at the following resources:
+3. **Environment Config:**
+   - Ensure you update \`.env.local\` with your active Supabase URL and Keys.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+4. **Launch Application:**
+   \`\`\`bash
+   npm run dev
+   \`\`\`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🏗️ Project Architecture
 
-## Deploy on Vercel
+\`\`\`mermaid
+graph TD
+A[Public Landing Page] --> B{Onboarding Flow}
+B --> C[Merchant Dashboard]
+C --> D[Real-time Overview]
+C --> E[Inventory Calendar]
+C --> F[Call Analytics]
+C --> G[Demo / Simulator]
+H[Voice Call] --> I[Twilio Webhook]
+I --> J[AI Logic / TTS]
+J --> K[Supabase DB / Room Management]
+\`\`\`
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## ✨ Design Choices
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Aesthetics:** Dark-mode glassmorphism with vivid cyan and purple neon accents for a high-end SaaS feel.
+- **Typography:** Using _Space Grotesk_ for a modern, tech-forward appearance.
+- **Micro-interactions:** Custom hover states, glowing borders, and smooth transitions on all interactive components.

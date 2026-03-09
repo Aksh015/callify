@@ -3,7 +3,7 @@ import { Metadata } from 'next';
 
 export const metadata: Metadata = {
   title: 'Callify | Hotel Voice AI',
-  description: 'AI Voice Receptionist for the Hospitality Sector',
+  description: 'AI Voice Receptionist for Hotels',
 };
 
 export default function RootLayout({
