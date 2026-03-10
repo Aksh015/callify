@@ -15,7 +15,15 @@ type HotelDetails = {
     systemPrompt: string;
 };
 
-const steps = ["Hotel Setup", "Choose Plan", "Payment"];
+type RoomConfig = {
+    id: string;
+    type: string;
+    price: string;
+    count: string;
+    capacity: string;
+};
+
+const steps = ["Hotel Setup", "Room Setup", "Choose Plan", "Payment"];
 
 const tiers: Array<{
     id: Tier;
@@ -101,12 +109,18 @@ export default function OnboardingPage() {
     const [error, setError] = useState("");
 
     const [hotel, setHotel] = useState<HotelDetails>({
-        hotelName: "",
-        city: "",
-        phone: "",
-        timezone: "Asia/Kolkata",
-        systemPrompt: "",
+        hotelName: "The Grand Azure Resort",
+        city: "Malibu",
+        phone: "+1 555-123-4567",
+        timezone: "America/Los_Angeles",
+        systemPrompt: "You are the AI Voice Receptionist for The Grand Azure Resort.\n\nLocation: Malibu\n\nRooms & Pricing:\n1. Standard Ocean View: $250/night (Capacity: 2)\n2. Deluxe Suite: $450/night (Capacity: 4)\n3. Presidential Suite: $1200/night (Capacity: 6)\n\nAmenities: Infinity Pool, Spa, Free Wi-Fi, Valet Parking.\n\nPolicies:\nCheck-in: 3:00 PM\nCheck-out: 11:00 AM\nNo smoking.",
     });
+
+    const [rooms, setRooms] = useState<RoomConfig[]>([
+        { id: "1", type: "Standard Ocean View", price: "250", count: "2", capacity: "2" },
+        { id: "2", type: "Deluxe Suite", price: "450", count: "1", capacity: "4" },
+        { id: "3", type: "Presidential Suite", price: "1200", count: "1", capacity: "6" }
+    ]);
 
     const selectedTier = useMemo(() => tiers.find((item) => item.id === tier) || null, [tier]);
 
@@ -138,7 +152,13 @@ export default function OnboardingPage() {
             if (!hotel.city.trim()) return "City is required.";
             if (!hotel.phone.trim()) return "Front desk phone number is required.";
         }
-        if (step === 1 && !tier) return "Please select a plan to continue.";
+        if (step === 1) {
+            if (rooms.length === 0) return "Please add at least one room type.";
+            for (const r of rooms) {
+                if (!r.type.trim() || !r.price || !r.count || !r.capacity) return "Please fill all room fields.";
+            }
+        }
+        if (step === 2 && !tier) return "Please select a plan to continue.";
         return "";
     }
 
@@ -150,7 +170,7 @@ export default function OnboardingPage() {
             const response = await fetch("/api/onboarding", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ hotel, tier }),
+                body: JSON.stringify({ hotel, tier, rooms }),
             });
             const data = (await parseJsonSafe<{ error?: string; businessId?: string }>(response)) || {};
             if (!response.ok || !data.businessId) {
@@ -366,16 +386,17 @@ export default function OnboardingPage() {
                                             Onboarding Pre-Flight · Hotel AI Setup
                                         </div>
                                         <h1 style={S.cardTitle}>
-                                            {step === 0 ? "Configure Your Hotel" : step === 1 ? "Select Your Plan" : "Activate & Pay"}
+                                            {step === 0 ? "Configure Your Hotel" : step === 1 ? "Room Setup" : step === 2 ? "Select Your Plan" : "Activate & Pay"}
                                         </h1>
                                         <p style={S.cardSubtitle}>
                                             {step === 0 && "Tell us about your hotel so we can personalise your AI voice receptionist to match your brand and services."}
-                                            {step === 1 && "Pick the plan that fits your hotel's needs. Both plans include a 24/7 AI voice receptionist for your hotel guests."}
-                                            {step === 2 && "Review your hotel setup and complete the payment to activate your AI receptionist instantly."}
+                                            {step === 1 && "Configure the types of rooms your hotel offers, their prices, and availability."}
+                                            {step === 2 && "Pick the plan that fits your hotel's needs. Both plans include a 24/7 AI voice receptionist for your hotel guests."}
+                                            {step === 3 && "Review your hotel setup and complete the payment to activate your AI receptionist instantly."}
                                         </p>
                                     </div>
                                     <div style={S.stepEmoji}>
-                                        {step === 0 ? "🏨" : step === 1 ? "⚡" : "🔐"}
+                                        {step === 0 ? "🏨" : step === 1 ? "🛏️" : step === 2 ? "⚡" : "🔐"}
                                     </div>
                                 </div>
                                 {/* Progress bar */}
@@ -455,8 +476,52 @@ export default function OnboardingPage() {
                                     </div>
                                 )}
 
-                                {/* ── Step 1: Choose Plan ── */}
+                                {/* ── Step 1: Room Setup ── */}
                                 {step === 1 && (
+                                    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                                        {rooms.map((room, index) => (
+                                            <div key={room.id} style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                                                <div style={{ flex: 2 }}>
+                                                    <label style={S.fieldLabel}>Room Type</label>
+                                                    <input value={room.type} onChange={(e) => {
+                                                        const newRooms = [...rooms];
+                                                        newRooms[index].type = e.target.value;
+                                                        setRooms(newRooms);
+                                                    }} className="field-input" style={S.fieldInput} placeholder="e.g. Deluxe Suite" />
+                                                </div>
+                                                <div style={{ flex: 1 }}>
+                                                    <label style={S.fieldLabel}>Price/Night</label>
+                                                    <input type="number" value={room.price} onChange={(e) => {
+                                                        const newRooms = [...rooms];
+                                                        newRooms[index].price = e.target.value;
+                                                        setRooms(newRooms);
+                                                    }} className="field-input" style={S.fieldInput} placeholder="e.g. 250" />
+                                                </div>
+                                                <div style={{ flex: 1 }}>
+                                                    <label style={S.fieldLabel}>Count</label>
+                                                    <input type="number" value={room.count} onChange={(e) => {
+                                                        const newRooms = [...rooms];
+                                                        newRooms[index].count = e.target.value;
+                                                        setRooms(newRooms);
+                                                    }} className="field-input" style={S.fieldInput} placeholder="e.g. 10" />
+                                                </div>
+                                                <div style={{ flex: 1 }}>
+                                                    <label style={S.fieldLabel}>Capacity</label>
+                                                    <input type="number" value={room.capacity} onChange={(e) => {
+                                                        const newRooms = [...rooms];
+                                                        newRooms[index].capacity = e.target.value;
+                                                        setRooms(newRooms);
+                                                    }} className="field-input" style={S.fieldInput} placeholder="e.g. 2" />
+                                                </div>
+                                                <button onClick={() => setRooms(rooms.filter(r => r.id !== room.id))} style={{ border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444", background: "transparent", padding: "10px 14px", borderRadius: 8, cursor: "pointer", marginTop: 22, transition: "background 0.2s" }} onMouseOver={e => e.currentTarget.style.background = "rgba(239,68,68,0.1)"} onMouseOut={e => e.currentTarget.style.background = "transparent"}>✕</button>
+                                            </div>
+                                        ))}
+                                        <button onClick={() => setRooms([...rooms, { id: Date.now().toString(), type: "", price: "", count: "1", capacity: "2" }])} style={{ background: "rgba(255,255,255,0.05)", border: "1px dashed rgba(255,255,255,0.2)", color: "#fff", padding: "12px", borderRadius: 12, cursor: "pointer", marginTop: 8, transition: "background 0.2s" }} onMouseOver={e => e.currentTarget.style.background = "rgba(255,255,255,0.1)"} onMouseOut={e => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}>+ Add Another Room Type</button>
+                                    </div>
+                                )}
+
+                                {/* ── Step 2: Choose Plan ── */}
+                                {step === 2 && (
                                     <div style={S.tierGrid}>
                                         {tiers.map((plan) => (
                                             <button
@@ -504,8 +569,8 @@ export default function OnboardingPage() {
                                     </div>
                                 )}
 
-                                {/* ── Step 2: Payment ── */}
-                                {step === 2 && selectedTier && (
+                                {/* ── Step 3: Payment ── */}
+                                {step === 3 && selectedTier && (
                                     <div style={S.paymentGrid}>
                                         {/* Summary Card */}
                                         <div style={S.summaryCard}>

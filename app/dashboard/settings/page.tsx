@@ -29,11 +29,22 @@ function loadCashfreeSDK(): Promise<any> {
     });
 }
 
+type RoomConfig = {
+    id: string;
+    type: string;
+    basePrice: string;
+    total: string;
+    capacity: string;
+};
+
 export default function SettingsPage() {
   const [plan, setPlan] = useState<string>("starter");
   const [businessId, setBusinessId] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [upgrading, setUpgrading] = useState(false);
+  
+  const [rooms, setRooms] = useState<RoomConfig[]>([]);
+  const [roomsSaving, setRoomsSaving] = useState(false);
 
   useEffect(() => {
     fetch('/api/auth/me')
@@ -46,7 +57,40 @@ export default function SettingsPage() {
       })
       .catch(err => console.error(err))
       .finally(() => setLoading(false));
+
+    fetch('/api/dashboard/inventory')
+      .then(r => r.json())
+      .then(data => {
+         if (data.roomTypes) {
+             setRooms(data.roomTypes.map((r: any, i: number) => ({
+                 id: String(i),
+                 type: r.type,
+                 basePrice: String(r.basePrice),
+                 total: String(r.total),
+                 capacity: "2" // default capacity presentation
+             })));
+         }
+      })
+      .catch(console.error);
   }, []);
+
+  async function handleSaveRooms() {
+      setRoomsSaving(true);
+      try {
+          const res = await fetch('/api/dashboard/inventory', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ rooms })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || "Failed to save rooms");
+          alert("Room configuration updated successfully!");
+      } catch (err: any) {
+          alert(err.message || "Failed to save");
+      } finally {
+          setRoomsSaving(false);
+      }
+  }
 
   async function handleUpgrade() {
       setUpgrading(true);
@@ -166,6 +210,48 @@ export default function SettingsPage() {
             </div>
             <button className="btn-primary" style={{ marginTop: '1rem' }}>Update API Keys</button>
           </div>
+        </div>
+
+        <div className={`glass-panel ${styles.settingsCard}`} style={{ gridColumn: '1 / -1' }}>
+          <h2>Room Categories & Pricing</h2>
+          <p style={{ color: "var(--text-muted)", marginBottom: "1.5rem" }}>
+            Manage the types of rooms you offer. These flow directly into your live dashboard and Voice AI.
+          </p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            {rooms.map((room, index) => (
+                <div key={room.id} style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                    <div style={{ flex: 2 }}>
+                        <label style={{ fontSize: 11, color: "var(--text-muted)" }}>Room Type</label>
+                        <input value={room.type} onChange={(e) => {
+                            const newRooms = [...rooms];
+                            newRooms[index].type = e.target.value;
+                            setRooms(newRooms);
+                        }} className={styles.input} placeholder="e.g. Deluxe Suite" />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: 11, color: "var(--text-muted)" }}>Price/Night (₹)</label>
+                        <input type="number" value={room.basePrice} onChange={(e) => {
+                            const newRooms = [...rooms];
+                            newRooms[index].basePrice = e.target.value;
+                            setRooms(newRooms);
+                        }} className={styles.input} />
+                    </div>
+                    <div style={{ flex: 1 }}>
+                        <label style={{ fontSize: 11, color: "var(--text-muted)" }}>Total Count</label>
+                        <input type="number" value={room.total} onChange={(e) => {
+                            const newRooms = [...rooms];
+                            newRooms[index].total = e.target.value;
+                            setRooms(newRooms);
+                        }} className={styles.input} />
+                    </div>
+                    <button onClick={() => setRooms(rooms.filter(r => r.id !== room.id))} style={{ border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444", background: "transparent", padding: "10px", borderRadius: 8, cursor: "pointer", marginTop: 18 }}>✕</button>
+                </div>
+            ))}
+            <button onClick={() => setRooms([...rooms, { id: Date.now().toString(), type: "", basePrice: "", total: "1", capacity: "2" }])} style={{ background: "rgba(255,255,255,0.05)", border: "1px dashed rgba(255,255,255,0.2)", color: "#fff", padding: "10px", borderRadius: 8, cursor: "pointer", marginTop: 8 }}>+ Add Another Room Type</button>
+          </div>
+          <button className="btn-primary" style={{ marginTop: '1.5rem' }} onClick={handleSaveRooms} disabled={roomsSaving}>
+              {roomsSaving ? "Saving..." : "Save Room Configuration"}
+          </button>
         </div>
 
         <div className={`glass-panel ${styles.settingsCard}`} style={{ gridColumn: '1 / -1' }}>

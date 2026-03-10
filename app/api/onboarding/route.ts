@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
     // 2. Parse request body
     const body = await req.json();
-    const { hotel, tier } = body as {
+    const { hotel, tier, rooms } = body as {
       hotel: {
         hotelName: string;
         city: string;
@@ -26,6 +26,13 @@ export async function POST(req: NextRequest) {
         systemPrompt?: string;
       };
       tier: 1 | 2;
+      rooms?: {
+          id: string;
+          type: string;
+          price: string;
+          count: string;
+          capacity: string;
+      }[];
     };
 
     // 3. Validate required fields
@@ -84,28 +91,66 @@ export async function POST(req: NextRequest) {
       phone_number: hotel.phone.trim(),
     };
 
-    let hotelError: any = null;
+    let hotelId = existingHotel?.id;
+
     if (existingHotel) {
       // Update existing hotel record
       const { error } = await supabaseAdmin
         .from("hotels")
         .update(hotelPayload)
         .eq("id", existingHotel.id);
-      hotelError = error;
+      if (error) {
+        console.error("[onboarding] hotel update error:", error);
+        return NextResponse.json({ error: "Failed to update hotel details." }, { status: 500 });
+      }
     } else {
       // Insert new hotel record
-      const { error } = await supabaseAdmin
+      const { data: newHotel, error } = await supabaseAdmin
         .from("hotels")
-        .insert(hotelPayload);
-      hotelError = error;
+        .insert(hotelPayload)
+        .select("id")
+        .single();
+        
+      if (error || !newHotel) {
+        console.error("[onboarding] hotel insert error:", error);
+        return NextResponse.json({ error: "Failed to create hotel details." }, { status: 500 });
+      }
+      hotelId = newHotel.id;
+
     }
 
-    if (hotelError) {
-      console.error("[onboarding] hotel save error:", hotelError);
-      return NextResponse.json(
-        { error: "Failed to save hotel details." },
-        { status: 500 }
-      );
+    if (rooms && rooms.length > 0) {
+      // Clear old rooms if re-running onboarding
+      if (existingHotel) {
+        await supabaseAdmin.from("rooms").delete().eq("hotel_id", hotelId);
+      }
+
+      const roomRows = [];
+      let floor = 1;
+      for (const roomDef of rooms) {
+          const numRooms = parseInt(roomDef.count) || 1;
+          for (let i = 1; i <= numRooms; i++) {
+              roomRows.push({
+                  hotel_id: hotelId,
+                  room_number: `${floor}0${i}`,
+                  room_type: roomDef.type,
+                  base_price: parseFloat(roomDef.price) || 0,
+                  capacity: parseInt(roomDef.capacity) || 2,
+                  is_available: true
+              });
+          }
+          floor++;
+      }
+
+      if (roomRows.length > 0) {
+          const { error: roomsError } = await supabaseAdmin
+            .from("rooms")
+            .insert(roomRows);
+            
+          if (roomsError) {
+            console.error("[onboarding] user rooms insert error:", roomsError);
+          }
+      }
     }
 
     return NextResponse.json({ businessId: business.id });

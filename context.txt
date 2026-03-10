@@ -88,7 +88,7 @@ The MCP server exposes the following hotel-specific tool interfaces for the LLM 
 To deploy the AI Voice Assistant for a specific hotel, the following data is captured during onboarding:
 - **Property Details:** hotel_name, hotel_type (e.g., Boutique/Business/Luxury), city, timezone, front_desk_phone.
 - **Knowledge Base:** Text or PDF uploads covering hotel rules and amenities.
-- **Room Configuration:** room_types (e.g., Deluxe, Suite) and base_pricing.
+- **Room Configuration:** Business owners dynamically set their exact room types, pricing, and counts during onboarding. These exact parameters instantly reflect in their dashboard inventory and are fully editable later completely inside the 'Account & AI Settings' view of their dashboard.
 - **Integration Keys (Pro only):** WhatsApp API credentials and Payment Gateway keys (Cashfree/Stripe) are required from businesses on Plan 2 to send payment links.
 
 ## Example Call Flows
