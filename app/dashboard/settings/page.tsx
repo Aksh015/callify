@@ -1,7 +1,8 @@
 "use client";
 import styles from './settings.module.css';
 import { useEffect, useState } from 'react';
-import { Lock } from 'lucide-react';
+import { Lock, BookOpen, RotateCcw, Save } from 'lucide-react';
+import { DEFAULT_DEMO_CONTEXT } from '@/lib/demo-context';
 
 function loadCashfreeSDK(): Promise<any> {
     return new Promise((resolve, reject) => {
@@ -46,6 +47,12 @@ export default function SettingsPage() {
   const [rooms, setRooms] = useState<RoomConfig[]>([]);
   const [roomsSaving, setRoomsSaving] = useState(false);
 
+  // AI Context state
+  const [aiContext, setAiContext] = useState('');
+  const [aiContextLoading, setAiContextLoading] = useState(true);
+  const [aiContextSaving, setAiContextSaving] = useState(false);
+  const [aiContextIsDefault, setAiContextIsDefault] = useState(true);
+
   useEffect(() => {
     fetch('/api/auth/me')
       .then(r => r.json())
@@ -71,7 +78,25 @@ export default function SettingsPage() {
              })));
          }
       })
-      .catch(console.error);
+       .catch(console.error);
+
+    // Load AI context
+    fetch('/api/auth/me')
+      .then(r => r.json())
+      .then(data => {
+        const bid = data.profile?.business_id;
+        return fetch(`/api/demo/context${bid ? `?businessId=${bid}` : ''}`);
+      })
+      .then(r => r.json())
+      .then(data => {
+        setAiContext(data.context || DEFAULT_DEMO_CONTEXT);
+        setAiContextIsDefault(data.isDefault !== false);
+      })
+      .catch(() => {
+        setAiContext(DEFAULT_DEMO_CONTEXT);
+        setAiContextIsDefault(true);
+      })
+      .finally(() => setAiContextLoading(false));
   }, []);
 
   async function handleSaveRooms() {
@@ -90,6 +115,33 @@ export default function SettingsPage() {
       } finally {
           setRoomsSaving(false);
       }
+  }
+
+  async function handleSaveContext() {
+    setAiContextSaving(true);
+    try {
+      if (!businessId) throw new Error('Business profile not found. Please log in again.');
+      const res = await fetch('/api/demo/context', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ businessId, context: aiContext }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to save');
+      setAiContextIsDefault(false);
+      alert('AI context updated! Your chatbot will now use this knowledge base.');
+    } catch (err: any) {
+      alert(err.message || 'Failed to save context');
+    } finally {
+      setAiContextSaving(false);
+    }
+  }
+
+  function handleResetContext() {
+    if (confirm('Reset to the default demo context? This will discard your custom context.')) {
+      setAiContext(DEFAULT_DEMO_CONTEXT);
+      setAiContextIsDefault(true);
+    }
   }
 
   async function handleUpgrade() {
@@ -255,21 +307,50 @@ export default function SettingsPage() {
         </div>
 
         <div className={`glass-panel ${styles.settingsCard}`} style={{ gridColumn: '1 / -1' }}>
-          <h2>AI Knowledge Base Management</h2>
-          <p style={{ color: "var(--text-muted)", marginBottom: "1.5rem" }}>
-            Upload PDFs containing your hotel policies, restaurant menus, and local area recommendations. Callify AI will parse this data to answer guest inquiries in real-time.
-          </p>
-          <div className={styles.inputGroup}>
-            <input type="file" className={styles.fileInput} accept=".pdf,.txt" />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <BookOpen size={22} style={{ color: 'var(--accent-cyan)' }} />
+              <h2 style={{ margin: 0 }}>AI Knowledge Base / Context</h2>
+            </div>
+            {!aiContextIsDefault && (
+              <span style={{ fontSize: '0.75rem', padding: '2px 10px', borderRadius: '20px', background: 'rgba(16,185,129,0.1)', color: '#10b981', border: '1px solid rgba(16,185,129,0.3)' }}>
+                Custom Context Active
+              </span>
+            )}
           </div>
-          <button className="btn-secondary">Upload Document to Vector Store</button>
-          
-          <div style={{ marginTop: "2rem", borderTop: "1px solid var(--panel-border)", paddingTop: "1rem" }}>
-            <h3 style={{ fontSize: "1rem", color: "#fff", marginBottom: "0.5rem" }}>Uploaded Documents:</h3>
-            <ul style={{ color: "var(--accent-cyan)", listStyle: "inside" }}>
-              <li>Sunset_Oasis_Policies_2025.pdf (Active)</li>
-              <li>Spa_Menu_Pricing.pdf (Active)</li>
-            </ul>
+          <p style={{ color: "var(--text-muted)", marginBottom: "1rem", fontSize: '0.9rem' }}>
+            This text is the <strong style={{ color: '#fff' }}>entire knowledge base</strong> your AI chatbot uses to answer guest questions in the <strong style={{ color: 'var(--accent-cyan)' }}>Try Demo</strong> chat. Edit it with your hotel&apos;s specific details — room types, amenities, policies, pricing, and FAQs.
+          </p>
+          <textarea
+            value={aiContextLoading ? 'Loading...' : aiContext}
+            onChange={(e) => setAiContext(e.target.value)}
+            disabled={aiContextLoading}
+            style={{
+              width: '100%',
+              minHeight: '350px',
+              background: 'rgba(0,0,0,0.3)',
+              border: '1px solid var(--panel-border)',
+              borderRadius: '10px',
+              padding: '1rem',
+              color: '#cbd5e1',
+              fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
+              fontSize: '0.8rem',
+              lineHeight: '1.6',
+              resize: 'vertical',
+            }}
+          />
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1rem', alignItems: 'center' }}>
+            <button className="btn-primary" onClick={handleSaveContext} disabled={aiContextSaving || aiContextLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <Save size={16} />
+              {aiContextSaving ? 'Saving...' : 'Save Context'}
+            </button>
+            <button onClick={handleResetContext} disabled={aiContextLoading} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'transparent', border: '1px solid rgba(255,255,255,0.15)', color: 'var(--text-muted)', padding: '0.6rem 1rem', borderRadius: '8px', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.85rem' }}>
+              <RotateCcw size={14} />
+              Reset to Default
+            </button>
+            <span style={{ marginLeft: 'auto', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              {aiContext.length.toLocaleString()} / 50,000 characters
+            </span>
           </div>
         </div>
       </div>
